@@ -26,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFE4EC), // light pink background
+      backgroundColor: const Color(0xFFFFE4EC),
 
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28.0),
@@ -132,9 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 15),
 
                   TextButton(
-                    onPressed: () {
-                      // Navigate to registration or forgot password screen
-                    },
+                    onPressed: () {},
                     child: const Text(
                       'Forgot Password?',
                       style: TextStyle(color: Color(0xFFEF9A9A)),

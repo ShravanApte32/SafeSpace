@@ -78,7 +78,6 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Optional Lottie animation - replace with your asset if you want
                   Transform.scale(
                     scale: 1.9,
                     child: Lottie.asset(

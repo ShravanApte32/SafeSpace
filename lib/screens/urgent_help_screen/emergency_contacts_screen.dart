@@ -83,7 +83,7 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
                   inputFormatters: [
                     FilteringTextInputFormatter
                         .digitsOnly, // only digits allowed
-                    LengthLimitingTextInputFormatter(10), // max 10 digits
+                    LengthLimitingTextInputFormatter(10),
                   ],
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) {

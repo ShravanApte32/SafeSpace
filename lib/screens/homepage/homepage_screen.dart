@@ -1,6 +1,104 @@
+// ignore_for_file: deprecated_member_use
+
+import 'dart:convert';
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:hereforyou/screens/homepage/journal_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// ============ MODELS + STORAGE ============
+
+class MoodLog {
+  final String label;
+  final String emoji;
+  final int colorValue;
+  final DateTime at;
+
+  MoodLog({
+    required this.label,
+    required this.emoji,
+    required this.colorValue,
+    required this.at,
+  });
+
+  Map<String, dynamic> toMap() => {
+    'label': label,
+    'emoji': emoji,
+    'color': colorValue,
+    'at': at.toIso8601String(),
+  };
+
+  factory MoodLog.fromMap(Map<String, dynamic> m) => MoodLog(
+    label: m['label'],
+    emoji: m['emoji'],
+    colorValue: m['color'],
+    at: DateTime.parse(m['at']),
+  );
+}
+
+class MoodStorage {
+  static const _key = 'mood_logs';
+
+  static Future<List<MoodLog>> getAll() async {
+    final sp = await SharedPreferences.getInstance();
+    final raw = sp.getStringList(_key) ?? [];
+    return raw
+        .map((s) => MoodLog.fromMap(jsonDecode(s) as Map<String, dynamic>))
+        .toList()
+      ..sort((a, b) => b.at.compareTo(a.at));
+  }
+
+  static Future<void> add(MoodLog log) async {
+    final sp = await SharedPreferences.getInstance();
+    final list = sp.getStringList(_key) ?? [];
+    list.add(jsonEncode(log.toMap()));
+    await sp.setStringList(_key, list);
+  }
+
+  static Future<void> clear() async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.remove(_key);
+  }
+}
+
+class JournalEntry {
+  final String text;
+  final DateTime at;
+  JournalEntry({required this.text, required this.at});
+
+  Map<String, dynamic> toMap() => {'text': text, 'at': at.toIso8601String()};
+
+  factory JournalEntry.fromMap(Map<String, dynamic> m) =>
+      JournalEntry(text: m['text'], at: DateTime.parse(m['at']));
+}
+
+class JournalStorage {
+  static const _key = 'journal_entries';
+
+  static Future<List<JournalEntry>> getAll() async {
+    final sp = await SharedPreferences.getInstance();
+    final raw = sp.getStringList(_key) ?? [];
+    return raw
+        .map((s) => JournalEntry.fromMap(jsonDecode(s) as Map<String, dynamic>))
+        .toList()
+      ..sort((a, b) => b.at.compareTo(a.at));
+  }
+
+  static Future<void> add(JournalEntry e) async {
+    final sp = await SharedPreferences.getInstance();
+    final list = sp.getStringList(_key) ?? [];
+    list.add(jsonEncode(e.toMap()));
+    await sp.setStringList(_key, list);
+  }
+
+  static Future<void> clear() async {
+    final sp = await SharedPreferences.getInstance();
+    await sp.remove(_key);
+  }
+}
+
+// ============ YOUR HOME PAGE (functional) ============
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -42,13 +140,11 @@ class _HomePageState extends State<HomePage>
   @override
   void initState() {
     super.initState();
-    // Floating hearts animator
     _bgController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
     )..repeat();
 
-    // Create some floating hearts with randomized paths/speeds
     final rnd = Random();
     _hearts = List.generate(
       16,
@@ -57,7 +153,7 @@ class _HomePageState extends State<HomePage>
         size: rnd.nextDouble() * 22 + 10,
         speed: rnd.nextDouble() * 0.5 + 0.5,
         phase: rnd.nextDouble() * pi * 2,
-        hue: rnd.nextInt(3), // slight color variety
+        hue: rnd.nextInt(3),
       ),
     );
 
@@ -96,29 +192,9 @@ class _HomePageState extends State<HomePage>
         Scaffold(
           backgroundColor: Colors.transparent,
           extendBody: true,
-          // appBar: AppBar(
-          //   automaticallyImplyLeading: false,
-          //   elevation: 0,
-          //   backgroundColor: Colors.transparent,
-          //   actions: [
-          //     IconButton(
-          //       icon: const Icon(
-          //         Icons.notifications_none,
-          //         color: Colors.black87,
-          //       ),
-          //       onPressed: () {},
-          //     ),
-          //     IconButton(
-          //       icon: const Icon(Icons.settings, color: Colors.black87),
-          //       onPressed: () {},
-          //     ),
-          //   ],
-          // ),
           body: Stack(
             children: [
-              // Soft gradient background
               const _BackgroundGradient(),
-              // Floating hearts layer
               AnimatedBuilder(
                 animation: _bgController,
                 builder: (context, _) {
@@ -128,7 +204,6 @@ class _HomePageState extends State<HomePage>
                   );
                 },
               ),
-              // Content
               SafeArea(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
@@ -139,7 +214,7 @@ class _HomePageState extends State<HomePage>
                       const SizedBox(height: 16),
                       _promptCard(),
                       const SizedBox(height: 20),
-                      _moodCarousel(),
+                      _moodCarousel(), // now tappable + saves mood
                       const SizedBox(height: 20),
                       _quickActionsRow(),
                       const SizedBox(height: 26),
@@ -154,7 +229,15 @@ class _HomePageState extends State<HomePage>
                       const SizedBox(height: 12),
                       _asymmetricFeatures(),
                       const SizedBox(height: 24),
-                      _moodTrackerTeaser(),
+                      GestureDetector(
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MoodHistoryPage(),
+                          ),
+                        ),
+                        child: _moodTrackerTeaser(),
+                      ),
                     ],
                   ),
                 ),
@@ -264,47 +347,74 @@ class _HomePageState extends State<HomePage>
             duration: const Duration(milliseconds: 220),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: _Glass(
-                blur: selected ? 24 : 12,
-                opacity: selected ? 0.28 : 0.18,
-                borderRadius: 20,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: color.withOpacity(0.35)),
-                    gradient: LinearGradient(
-                      colors: [
-                        color.withOpacity(0.10),
-                        color.withOpacity(0.18),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: selected
+                    ? () {
+                        final newMood = MoodLog(
+                          label: mood['label'] as String,
+                          emoji: mood['emoji'] as String,
+                          colorValue: color.value,
+                          at: DateTime.now(),
+                        );
+
+                        // Instant user feedback
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              "Logged mood: ${newMood.emoji} ${newMood.label}",
+                            ),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+
+                        // Save to storage in the background
+                        MoodStorage.add(newMood);
+                      }
+                    : null,
+
+                child: _Glass(
+                  blur: selected ? 24 : 12,
+                  opacity: selected ? 0.28 : 0.18,
+                  borderRadius: 20,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
                     ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        mood['emoji'] as String,
-                        style: const TextStyle(fontSize: 22),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: color.withOpacity(0.35)),
+                      gradient: LinearGradient(
+                        colors: [
+                          color.withOpacity(0.10),
+                          color.withOpacity(0.18),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        mood['label'] as String,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: color.darken(0.2),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          mood['emoji'] as String,
+                          style: const TextStyle(fontSize: 22),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        Text(
+                          mood['label'] as String,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: color.darken(0.2),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -323,27 +433,34 @@ class _HomePageState extends State<HomePage>
           title: "Journal",
           icon: Icons.edit_note_rounded,
           color: Colors.orange,
-          onTap: () {},
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const JournalPage()),
+          ),
         ),
         _glassAction(
           title: "Chat",
           icon: Icons.chat_bubble_outline_rounded,
           color: Colors.teal,
-          onTap: () {},
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AIChatPage()),
+          ),
         ),
         _glassAction(
           title: "Breathe",
           icon: Icons.self_improvement_rounded,
           color: Colors.purple,
-          onTap: () {
-            _showBreathSheet();
-          },
+          onTap: _showBreathSheet,
         ),
         _glassAction(
           title: "Helpline",
           icon: Icons.phone_in_talk_rounded,
           color: Colors.redAccent,
-          onTap: () {},
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const HelplinePage()),
+          ),
         ),
       ],
     );
@@ -400,16 +517,17 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _asymmetricFeatures() {
-    // One big card + two smaller cards
     return Column(
       children: [
-        // Big card
         _featureBigCard(
           title: "Instant Listener",
           subtitle: "AI or human — your choice.\nWe’re here now.",
           icon: Icons.headset_mic_rounded,
           color: Colors.teal,
-          onTap: () {},
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AIChatPage()),
+          ),
         ),
         const SizedBox(height: 14),
         Row(
@@ -419,7 +537,10 @@ class _HomePageState extends State<HomePage>
                 title: "Community",
                 icon: Icons.people_rounded,
                 color: Colors.orange,
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CommunityPage()),
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -428,7 +549,10 @@ class _HomePageState extends State<HomePage>
                 title: "Resources",
                 icon: Icons.health_and_safety_rounded,
                 color: Colors.blueAccent,
-                onTap: () {},
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ResourcesPage()),
+                ),
               ),
             ),
           ],
@@ -576,10 +700,10 @@ class _HomePageState extends State<HomePage>
           children: [
             Icon(Icons.favorite_rounded, color: Colors.pink[300], size: 30),
             const SizedBox(width: 12),
-            Expanded(
+            const Expanded(
               child: Text(
                 "Track your mood and see your emotional journey over time.",
-                style: TextStyle(fontSize: 14, color: Colors.pink[900]),
+                style: TextStyle(fontSize: 14, color: Color(0xFF880E4F)),
               ),
             ),
             Icon(Icons.chevron_right_rounded, color: Colors.pink[300]),
@@ -680,7 +804,13 @@ class _HomePageState extends State<HomePage>
                     title: "Talk to AI Listener",
                     subtitle: "Instant, supportive, judgment-free",
                     color: Colors.purple,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AIChatPage()),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   _talkOption(
@@ -688,15 +818,30 @@ class _HomePageState extends State<HomePage>
                     title: "Connect to Human Listener",
                     subtitle: "Real person, trained to listen",
                     color: Colors.teal,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pop(context);
+                      // Placeholder — route to your human listener flow
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CommunityPage(),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   _talkOption(
                     icon: Icons.sos_rounded,
                     title: "Crisis Helpline",
-                    subtitle: "Verified numbers in your country",
+                    subtitle: "Add local numbers you trust",
                     color: Colors.redAccent,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HelplinePage()),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -999,6 +1144,232 @@ extension _ColorMath on Color {
       (red * f).round(),
       (green * f).round(),
       (blue * f).round(),
+    );
+  }
+}
+
+// ============ SIMPLE PAGES ============
+
+class MoodHistoryPage extends StatefulWidget {
+  const MoodHistoryPage({super.key});
+
+  @override
+  State<MoodHistoryPage> createState() => _MoodHistoryPageState();
+}
+
+class _MoodHistoryPageState extends State<MoodHistoryPage> {
+  late Future<List<MoodLog>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = MoodStorage.getAll();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Mood History")),
+      body: FutureBuilder<List<MoodLog>>(
+        future: _future,
+        builder: (context, snap) {
+          if (!snap.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final data = snap.data!;
+          if (data.isEmpty) {
+            return const Center(child: Text("No moods logged yet."));
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: data.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, i) {
+              final m = data[i];
+              return ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                tileColor: Color(m.colorValue).withOpacity(0.12),
+                leading: Text(m.emoji, style: const TextStyle(fontSize: 22)),
+                title: Text(
+                  m.label,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(
+                  "${m.at.toLocal()}".split('.').first.replaceFirst('T', ' '),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          // Clear persistent storage
+          await MoodStorage.clear();
+
+          if (!mounted) return;
+
+          // Instant UI clear
+          setState(() {
+            _future = Future.value([]); // Empty list instantly
+          });
+        },
+
+        label: const Text("Clear"),
+        icon: const Icon(Icons.delete),
+      ),
+    );
+  }
+}
+
+class AIChatPage extends StatelessWidget {
+  const AIChatPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // Placeholder: integrate your AI later
+    return Scaffold(
+      appBar: AppBar(title: const Text("AI Listener")),
+      body: const Center(
+        child: Text(
+          "AI chat coming soon.\nHook your SDK/model here.",
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+class CommunityPage extends StatelessWidget {
+  const CommunityPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Community")),
+      body: const Center(
+        child: Text(
+          "Community hub placeholder.\nAdd rooms, posts, or spaces.",
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+class ResourcesPage extends StatelessWidget {
+  const ResourcesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = const [
+      ("Grounding techniques", Icons.terrain),
+      ("Healthy sleep tips", Icons.bedtime),
+      ("Anxiety first-aid", Icons.healing),
+      ("Emergency preparation", Icons.shield),
+    ];
+    return Scaffold(
+      appBar: AppBar(title: const Text("Resources")),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, i) {
+          final (title, icon) = items[i];
+          return ListTile(
+            leading: Icon(icon),
+            title: Text(title),
+            tileColor: Colors.pink[50],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onTap: () {},
+          );
+        },
+      ),
+    );
+  }
+}
+
+class HelplinePage extends StatefulWidget {
+  const HelplinePage({super.key});
+
+  @override
+  State<HelplinePage> createState() => _HelplinePageState();
+}
+
+class _HelplinePageState extends State<HelplinePage> {
+  final List<Map<String, String>> _numbers = [
+    // Keep these as placeholders — replace with trusted local contacts/orgs.
+    {'name': 'Local Emergency', 'phone': '112'},
+    {'name': 'Trusted Friend', 'phone': ''},
+    {'name': 'Counselor', 'phone': ''},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Helplines")),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _numbers.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, i) {
+          final n = _numbers[i];
+          return ListTile(
+            leading: const Icon(Icons.call_rounded),
+            title: Text(n['name']!),
+            subtitle: Text(n['phone']!.isEmpty ? "Add number" : n['phone']!),
+            trailing: IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () async {
+                final c = TextEditingController(text: n['phone']);
+                final newNum = await showDialog<String>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: Text("Edit ${n['name']}"),
+                    content: TextField(
+                      controller: c,
+                      decoration: const InputDecoration(
+                        hintText: "Enter phone number",
+                      ),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("Cancel"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context, c.text.trim()),
+                        child: const Text("Save"),
+                      ),
+                    ],
+                  ),
+                );
+                if (newNum != null) {
+                  setState(() => _numbers[i]['phone'] = newNum);
+                }
+              },
+            ),
+            onTap: () {
+              final phone = _numbers[i]['phone'] ?? '';
+              if (phone.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Add a number first, then tap to call."),
+                  ),
+                );
+                return;
+              }
+              // Use url_launcher if you want to actually dial:
+              // launchUrl(Uri.parse("tel:$phone"));
+            },
+          );
+        },
+      ),
     );
   }
 }

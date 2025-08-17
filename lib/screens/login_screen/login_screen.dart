@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:hereforyou/data_source/fetch_users.dart';
 import 'package:hereforyou/models/users.dart';
-import 'package:hereforyou/screens/homepage/homepage_screen.dart';
+import 'package:hereforyou/screens/homepage/home/homepage_screen.dart';
 import 'package:hereforyou/widgets/app_loader.dart';
 
 class LoginScreen extends StatefulWidget {

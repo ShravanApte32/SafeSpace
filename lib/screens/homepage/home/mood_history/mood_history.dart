@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:hereforyou/models/mood_logs.dart';
-import 'package:hereforyou/screens/homepage/mood_carousel/mood_storage.dart';
+import 'package:hereforyou/screens/homepage/home/mood_carousel/mood_storage.dart';
 
 class MoodHistoryPage extends StatefulWidget {
   const MoodHistoryPage({super.key});

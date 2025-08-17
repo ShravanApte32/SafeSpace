@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:hereforyou/screens/urgent_help_screen/emergency_contacts_screen.dart';
 import 'package:hereforyou/utils/constants.dart';
@@ -6,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class UrgentHelpPage extends StatelessWidget {
-  const UrgentHelpPage({Key? key}) : super(key: key);
+  const UrgentHelpPage({super.key});
 
   // Function to launch phone dialer
   void _callNumber(String number) async {
@@ -30,8 +32,6 @@ class UrgentHelpPage extends StatelessWidget {
           fallbackUrl,
           mode: LaunchMode.externalApplication,
         );
-      } else {
-        print('Could not launch WhatsApp');
       }
     }
   }

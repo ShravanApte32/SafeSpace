@@ -1,82 +1,10 @@
-import 'dart:convert';
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use, unnecessary_brace_in_string_interps
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hereforyou/models/journal_entry.dart';
+import 'package:hereforyou/screens/homepage/journal/journal_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
-
-class JournalEntry {
-  final String id;
-  String text;
-  DateTime at;
-  String mood;
-  double sentiment;
-
-  JournalEntry({
-    required this.id,
-    required this.text,
-    required this.at,
-    required this.mood,
-    required this.sentiment,
-  });
-
-  Map<String, dynamic> toMap() => {
-    'id': id,
-    'text': text,
-    'at': at.toIso8601String(),
-    'mood': mood,
-    'sentiment': sentiment,
-  };
-
-  factory JournalEntry.fromMap(Map<String, dynamic> m) => JournalEntry(
-    id: m['id'],
-    text: m['text'],
-    at: DateTime.parse(m['at']),
-    mood: m['mood'] ?? '😌',
-    sentiment: (m['sentiment'] ?? 0.0).toDouble(),
-  );
-}
-
-class JournalStorage {
-  static const _key = 'journal_entries_v1';
-
-  static Future<List<JournalEntry>> getAll() async {
-    final sp = await SharedPreferences.getInstance();
-    final jsonStr = sp.getString(_key);
-    if (jsonStr == null) return [];
-    final List list = json.decode(jsonStr) as List;
-    final entries = list.map((e) => JournalEntry.fromMap(e)).toList();
-    entries.sort((a, b) => b.at.compareTo(a.at));
-    return entries;
-  }
-
-  static Future<void> saveAll(List<JournalEntry> entries) async {
-    final sp = await SharedPreferences.getInstance();
-    final list = entries.map((e) => e.toMap()).toList();
-    await sp.setString(_key, json.encode(list));
-  }
-
-  static Future<void> add(JournalEntry entry) async {
-    final list = await getAll();
-    list.insert(0, entry);
-    await saveAll(list);
-  }
-
-  static Future<void> update(JournalEntry entry) async {
-    final list = await getAll();
-    final i = list.indexWhere((e) => e.id == entry.id);
-    if (i >= 0) {
-      list[i] = entry;
-      list.sort((a, b) => b.at.compareTo(a.at));
-      await saveAll(list);
-    }
-  }
-
-  static Future<void> remove(String id) async {
-    final list = await getAll();
-    list.removeWhere((e) => e.id == id);
-    await saveAll(list);
-  }
-}
 
 class JournalPage extends StatefulWidget {
   const JournalPage({super.key});
@@ -175,8 +103,12 @@ class _JournalPageState extends State<JournalPage>
     ];
     final t = text.toLowerCase();
     int score = 0;
-    for (final w in pos) if (t.contains(w)) score += 2;
-    for (final w in neg) if (t.contains(w)) score -= 2;
+    for (final w in pos) {
+      if (t.contains(w)) score += 2;
+    }
+    for (final w in neg) {
+      if (t.contains(w)) score -= 2;
+    }
     if (t.contains('!')) score += 1;
     if (t.contains('...')) score -= 1;
     final len = t.split(RegExp(r'\s+')).length.clamp(1, 200);
@@ -298,8 +230,9 @@ class _JournalPageState extends State<JournalPage>
 
   List<JournalEntry> get _visibleEntries {
     var list = _entries;
-    if (_filterMood != 'All')
+    if (_filterMood != 'All') {
       list = list.where((e) => e.mood == _filterMood).toList();
+    }
     if (_search.isNotEmpty) {
       final s = _search.toLowerCase();
       list = list.where((e) => e.text.toLowerCase().contains(s)).toList();

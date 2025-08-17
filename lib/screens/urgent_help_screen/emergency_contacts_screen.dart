@@ -1,9 +1,11 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class EmergencyContactsPage extends StatefulWidget {
-  const EmergencyContactsPage({Key? key}) : super(key: key);
+  const EmergencyContactsPage({super.key});
 
   @override
   State<EmergencyContactsPage> createState() => _EmergencyContactsPageState();
@@ -27,7 +29,7 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
   }
 
   void _showAddContactDialog() {
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
     String name = '';
     String number = '';
 
@@ -45,7 +47,7 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
           ),
         ),
         content: Form(
-          key: _formKey,
+          key: formKey,
           child: SizedBox(
             height: 160,
             child: Column(
@@ -116,8 +118,8 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage> {
               ),
             ),
             onPressed: () {
-              if (_formKey.currentState?.validate() ?? false) {
-                _formKey.currentState!.save();
+              if (formKey.currentState?.validate() ?? false) {
+                formKey.currentState!.save();
                 setState(() {
                   _userContacts.add({"country": name, "number": number});
                 });

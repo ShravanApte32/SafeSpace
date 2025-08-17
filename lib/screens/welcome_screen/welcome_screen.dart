@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:hereforyou/screens/onboarding_screen/onboarding_screen.dart';
 import 'package:hereforyou/screens/urgent_help_screen/urgent_help_screen.dart';

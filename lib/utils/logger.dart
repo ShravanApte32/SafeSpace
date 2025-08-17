@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 class Logger {
   static void success(String message) {
     print('\x1B[32m✅ $message\x1B[0m'); // Green

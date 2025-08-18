@@ -11,7 +11,6 @@ import 'package:hereforyou/screens/homepage/chat/community_chat/community.dart';
 import 'package:hereforyou/screens/homepage/home/exercises/breath_coach.dart';
 import 'package:hereforyou/screens/homepage/explore/helplines/helplines.dart';
 import 'package:hereforyou/screens/homepage/explore/resources/resources.dart';
-import 'package:hereforyou/screens/homepage/home/habit_tracker/habit_tracker_card.dart';
 import 'package:hereforyou/screens/homepage/home/habit_tracker/habits_page.dart';
 import 'package:hereforyou/screens/homepage/journal/journal_page.dart';
 import 'package:hereforyou/screens/homepage/home/mood_carousel/mood_storage.dart';
@@ -41,23 +40,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   String? challenge;
   bool habitReminderEnabled = false;
 
-  // HABIT — state & keys
-  int _habitGoal = 5; // fixed for now; persisted
-  int _habitCount = 0; // today's progress; persisted
-  final String _habitTitle = "Drink Water 💧"; // fixed label
+  // HABIT — state & key
 
-  bool _celebrate = false; // glow animation on completion
+  // glow animation on completion
   late final AnimationController _habitBtnController; // bounce +1
 
   static const _kHabitEnabled = "habit_toggle";
-  static const _kHabitGoal = "habit_goal";
-  static const _kHabitCount = "habit_count";
-  static const _kHabitLastDate = "habit_last_date";
-
-  String get _todayKey => DateTime.now().toIso8601String().substring(0, 10);
-  double get _habitProgress =>
-      _habitGoal == 0 ? 0 : (_habitCount / _habitGoal).clamp(0, 1);
-  bool get _habitDone => _habitCount >= _habitGoal;
 
   int _quizPoints = 0;
   int _currentQuestionIndex = 0;
@@ -533,26 +521,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // enabled toggle (backward compatible with your previous key)
     habitReminderEnabled = prefs.getBool(_kHabitEnabled) ?? false;
 
-    // goal + count + last date
-    _habitGoal = prefs.getInt(_kHabitGoal) ?? 5;
-    final last = prefs.getString(_kHabitLastDate);
-    final today = _todayKey;
-
-    if (last == today) {
-      _habitCount = prefs.getInt(_kHabitCount) ?? 0;
-    } else {
-      // new day → reset count
-      _habitCount = 0;
-      await prefs.setString(_kHabitLastDate, today);
-      await prefs.setInt(_kHabitCount, 0);
-    }
     if (mounted) setState(() {});
-  }
-
-  Future<void> _toggleHabit(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kHabitEnabled, value);
-    setState(() => habitReminderEnabled = value);
   }
 
   void _loadDailyChallenge() {
@@ -570,44 +539,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     setState(() => challenge = challenges[day % challenges.length]);
   }
 
-  Future<void> _incrementHabit() async {
-    if (!habitReminderEnabled) return;
-    if (_habitCount >= _habitGoal) return;
-
-    // bounce
-    await _habitBtnController.forward();
-    await _habitBtnController.reverse();
-
-    setState(() => _habitCount++);
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_kHabitCount, _habitCount);
-    await prefs.setString(_kHabitLastDate, _todayKey);
-
-    if (_habitCount >= _habitGoal) {
-      setState(() => _celebrate = true);
-      // small celebratory pulse
-      Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) setState(() => _celebrate = false);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Nice! You completed your water goal for today 🎉"),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
   // Optional: allow quick goal adjust (persists)
-  Future<void> _setHabitGoal(int newGoal) async {
-    final prefs = await SharedPreferences.getInstance();
-    _habitGoal = newGoal.clamp(1, 20);
-    if (_habitCount > _habitGoal) _habitCount = _habitGoal;
-    await prefs.setInt(_kHabitGoal, _habitGoal);
-    await prefs.setInt(_kHabitCount, _habitCount);
-    if (mounted) setState(() {});
-  }
 
   @override
   void dispose() {
@@ -887,289 +819,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
         ),
       ),
-    );
-  }
-
-  Widget _habitReminderCard() {
-    final isActive = habitReminderEnabled && !_habitDone;
-    final isCompleted = habitReminderEnabled && _habitDone;
-    final glowColor = _habitDone ? Colors.greenAccent : Colors.blueAccent;
-
-    return Glass(
-      blur: 22,
-      opacity: 0.24,
-      borderRadius: 20,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isCompleted
-                ? Colors.greenAccent.withOpacity(0.6)
-                : isActive
-                ? Colors.blueAccent.withOpacity(0.4)
-                : Colors.grey.withOpacity(0.3),
-            width: (isActive || isCompleted) ? 1.5 : 1,
-          ),
-
-          boxShadow: [
-            if (_celebrate)
-              BoxShadow(
-                color: glowColor.withOpacity(0.35),
-                blurRadius: 24,
-                spreadRadius: 2,
-              ),
-          ],
-          gradient: LinearGradient(
-            colors: isCompleted
-                ? [
-                    Colors.greenAccent.withOpacity(0.15),
-                    Colors.tealAccent.withOpacity(0.12),
-                  ]
-                : [
-                    Colors.blue.withOpacity(isActive ? 0.12 : 0.08),
-                    Colors.purple.withOpacity(isActive ? 0.15 : 0.10),
-                  ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with toggle
-            Row(
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(isActive ? 0.9 : 0.7),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.water_drop_rounded,
-                    color: isCompleted
-                        ? Colors.greenAccent
-                        : isActive
-                        ? Colors.blueAccent
-                        : Colors.grey,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    "Habit Tracker",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                      color: isCompleted
-                          ? Colors.green[800]
-                          : isActive
-                          ? Colors.blueGrey[900]
-                          : Colors.grey[700],
-                    ),
-                  ),
-                ),
-                Transform.scale(
-                  scale: 0.8,
-                  child: Switch.adaptive(
-                    value: habitReminderEnabled,
-                    activeColor: Colors.blueAccent,
-                    onChanged: _toggleHabit,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Progress section
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      _habitTitle,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: isActive
-                            ? Colors.blueGrey[800]
-                            : Colors.grey[600],
-                      ),
-                    ),
-                    const Spacer(),
-                    if (habitReminderEnabled)
-                      GestureDetector(
-                        onTap: () => _showHabitGoalPicker(context),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.85),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.blueAccent.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Text(
-                            "$_habitCount/$_habitGoal",
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12,
-                              color: Colors.blueAccent,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Animated progress bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 500),
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Stack(
-                      children: [
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            return AnimatedContainer(
-                              duration: const Duration(milliseconds: 800),
-                              curve: Curves.easeOutQuint,
-                              width: constraints.maxWidth * _habitProgress,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: isCompleted
-                                      ? [
-                                          Colors.greenAccent.shade400,
-                                          Colors.tealAccent.shade400,
-                                        ]
-                                      : !isActive
-                                      ? [
-                                          Colors.grey.shade400,
-                                          Colors.grey.shade600,
-                                        ]
-                                      : [
-                                          Colors.tealAccent.shade400,
-                                          Colors.greenAccent.shade400,
-                                        ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        if (_habitProgress > 0.3)
-                          Positioned.fill(
-                            child: Center(
-                              child: Text(
-                                "${(_habitProgress * 100).round()}%",
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // Action button
-                SizedBox(
-                  width: double.infinity,
-                  child: AnimatedScale(
-                    scale: isActive ? 1.0 : 0.95,
-                    duration: const Duration(milliseconds: 200),
-                    child: AnimatedOpacity(
-                      opacity: isActive ? 1.0 : 0.6,
-                      duration: const Duration(milliseconds: 200),
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.add_rounded, size: 20),
-                        label: Text(
-                          _habitDone ? "Completed!" : "Log +1",
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _habitDone
-                              ? Colors.greenAccent.shade400
-                              : Colors.blueAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          elevation: 2,
-                          shadowColor: glowColor.withOpacity(0.5),
-                        ),
-                        onPressed: isActive ? _incrementHabit : null,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showHabitGoalPicker(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Adjust Daily Goal"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Slider(
-                value: _habitGoal.toDouble(),
-                min: 1,
-                max: 10,
-                divisions: 9,
-                label: _habitGoal.toString(),
-                onChanged: (value) =>
-                    setState(() => _habitGoal = value.round()),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                "Current goal: $_habitGoal times per day",
-                style: const TextStyle(fontSize: 14),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () {
-                _setHabitGoal(_habitGoal);
-                Navigator.pop(context);
-              },
-              child: const Text("Save"),
-            ),
-          ],
-        );
-      },
     );
   }
 

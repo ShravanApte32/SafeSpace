@@ -5,15 +5,17 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hereforyou/models/hearts.dart';
 import 'package:hereforyou/models/mood_logs.dart';
-import 'package:hereforyou/screens/homepage/challenges/quiz_helper.dart';
+import 'package:hereforyou/screens/homepage/home/challenges/quiz_helper.dart';
 import 'package:hereforyou/screens/homepage/chat/ai_chat/ai_chat.dart';
 import 'package:hereforyou/screens/homepage/chat/community_chat/community.dart';
-import 'package:hereforyou/screens/homepage/exercises/breath_coach.dart';
+import 'package:hereforyou/screens/homepage/home/exercises/breath_coach.dart';
 import 'package:hereforyou/screens/homepage/explore/helplines/helplines.dart';
 import 'package:hereforyou/screens/homepage/explore/resources/resources.dart';
+import 'package:hereforyou/screens/homepage/home/habit_tracker/habit_tracker_card.dart';
+import 'package:hereforyou/screens/homepage/home/habit_tracker/habits_page.dart';
 import 'package:hereforyou/screens/homepage/journal/journal_page.dart';
-import 'package:hereforyou/screens/homepage/mood_carousel/mood_storage.dart';
-import 'package:hereforyou/screens/homepage/mood_history/mood_history.dart';
+import 'package:hereforyou/screens/homepage/home/mood_carousel/mood_storage.dart';
+import 'package:hereforyou/screens/homepage/home/mood_history/mood_history.dart';
 import 'package:hereforyou/utils/colormath.dart';
 import 'package:hereforyou/widgets/background_gradient.dart';
 import 'package:hereforyou/widgets/glass_effect.dart';
@@ -662,7 +664,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       const SizedBox(height: 20),
                       _challengeCard(),
                       const SizedBox(height: 20),
-                      _habitReminderCard(),
+                      // _habitReminderCard(),
+                      const HabitsPage(),
                       const SizedBox(height: 20),
                       _quickActionsRow1(),
                       const SizedBox(height: 26),
@@ -889,6 +892,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Widget _habitReminderCard() {
     final isActive = habitReminderEnabled && !_habitDone;
+    final isCompleted = habitReminderEnabled && _habitDone;
     final glowColor = _habitDone ? Colors.greenAccent : Colors.blueAccent;
 
     return Glass(
@@ -901,11 +905,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isActive
+            color: isCompleted
+                ? Colors.greenAccent.withOpacity(0.6)
+                : isActive
                 ? Colors.blueAccent.withOpacity(0.4)
                 : Colors.grey.withOpacity(0.3),
-            width: isActive ? 1.5 : 1,
+            width: (isActive || isCompleted) ? 1.5 : 1,
           ),
+
           boxShadow: [
             if (_celebrate)
               BoxShadow(
@@ -915,10 +922,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               ),
           ],
           gradient: LinearGradient(
-            colors: [
-              Colors.blue.withOpacity(isActive ? 0.12 : 0.08),
-              Colors.purple.withOpacity(isActive ? 0.15 : 0.10),
-            ],
+            colors: isCompleted
+                ? [
+                    Colors.greenAccent.withOpacity(0.15),
+                    Colors.tealAccent.withOpacity(0.12),
+                  ]
+                : [
+                    Colors.blue.withOpacity(isActive ? 0.12 : 0.08),
+                    Colors.purple.withOpacity(isActive ? 0.15 : 0.10),
+                  ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -938,7 +950,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ),
                   child: Icon(
                     Icons.water_drop_rounded,
-                    color: isActive ? Colors.blueAccent : Colors.grey,
+                    color: isCompleted
+                        ? Colors.greenAccent
+                        : isActive
+                        ? Colors.blueAccent
+                        : Colors.grey,
                     size: 24,
                   ),
                 ),
@@ -949,7 +965,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 16,
-                      color: isActive ? Colors.blueGrey[900] : Colors.grey[700],
+                      color: isCompleted
+                          ? Colors.green[800]
+                          : isActive
+                          ? Colors.blueGrey[900]
+                          : Colors.grey[700],
                     ),
                   ),
                 ),
@@ -1031,14 +1051,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                               width: constraints.maxWidth * _habitProgress,
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
-                                  colors: _habitDone
+                                  colors: isCompleted
                                       ? [
                                           Colors.greenAccent.shade400,
                                           Colors.tealAccent.shade400,
                                         ]
+                                      : !isActive
+                                      ? [
+                                          Colors.grey.shade400,
+                                          Colors.grey.shade600,
+                                        ]
                                       : [
-                                          Colors.blueAccent,
-                                          Colors.purpleAccent,
+                                          Colors.tealAccent.shade400,
+                                          Colors.greenAccent.shade400,
                                         ],
                                 ),
                               ),

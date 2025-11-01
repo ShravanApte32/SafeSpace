@@ -24,6 +24,7 @@ import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -590,7 +591,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       const SizedBox(height: 16),
                       _promptCard(),
                       const SizedBox(height: 20),
-                      _moodCarousel(), // now tappable + saves mood
+                      MoodCarousel(), // now tappable + saves mood
                       const SizedBox(height: 20),
                       _affirmationCard(),
                       const SizedBox(height: 20),
@@ -708,102 +709,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _moodCarousel() {
-    return SizedBox(
-      height: 96,
-      child: PageView.builder(
-        controller: _moodController,
-        clipBehavior: Clip.none,
-        physics: const BouncingScrollPhysics(),
-        itemCount: moods.length,
-        onPageChanged: (i) => setState(() => _currentMood = i),
-        itemBuilder: (context, i) {
-          final mood = moods[i];
-          final color = mood['color'] as Color;
-          final selected = i == _currentMood;
-          return AnimatedScale(
-            scale: selected ? 1.05 : 0.94,
-            duration: const Duration(milliseconds: 220),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: selected
-                    ? () {
-                        final newMood = MoodLog(
-                          label: mood['label'] as String,
-                          emoji: mood['emoji'] as String,
-                          colorValue: color.value,
-                          at: DateTime.now(),
-                        );
-
-                        // Instant user feedback
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "Logged mood: ${newMood.emoji} ${newMood.label}",
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-
-                        // Save to storage in the background
-                        MoodStorage.add(newMood);
-                      }
-                    : null,
-
-                child: Glass(
-                  blur: selected ? 24 : 12,
-                  opacity: selected ? 0.28 : 0.18,
-                  borderRadius: 20,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: color.withOpacity(0.35)),
-                      gradient: LinearGradient(
-                        colors: [
-                          color.withOpacity(0.10),
-                          color.withOpacity(0.18),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          mood['emoji'] as String,
-                          style: const TextStyle(fontSize: 22),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          mood['label'] as String,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: selected
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: color.darken(0.2),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -1325,6 +1230,173 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ],
         ),
       ),
+    );
+  }
+}
+
+class MoodCarousel extends StatefulWidget {
+  const MoodCarousel({super.key});
+
+  @override
+  State<MoodCarousel> createState() => _MoodCarouselState();
+}
+
+class _MoodCarouselState extends State<MoodCarousel> {
+  final _moodController = PageController(viewportFraction: 0.32);
+  final supabase = Supabase.instance.client;
+  int _currentMood = 0;
+  List<Map<String, dynamic>> moods = [];
+  List<dynamic> _previousMoods = [];
+
+  @override
+  void initState() {
+    super.initState();
+    moods = [
+      {"emoji": "😊", "label": "Happy", "color": Colors.orangeAccent},
+      {"emoji": "😢", "label": "Sad", "color": Colors.blueAccent},
+      {"emoji": "😡", "label": "Angry", "color": Colors.redAccent},
+      {"emoji": "😌", "label": "Calm", "color": Colors.greenAccent},
+      {"emoji": "😰", "label": "Anxious", "color": Colors.purpleAccent},
+    ];
+    _fetchMoodLogs(); // 🔹 Load from Supabase when screen opens
+  }
+
+  Future<void> _fetchMoodLogs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) return;
+
+      final response = await supabase
+          .from('mood_logs')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(1); // ✅ only get latest mood
+
+      if (response.isNotEmpty) {
+        final latestMood = response.first;
+        final label = latestMood['label'];
+
+        // Find the index of this mood in the carousel
+        final index = moods.indexWhere((m) => m['label'] == label);
+
+        if (index != -1) {
+          setState(() {
+            _currentMood = index;
+          });
+
+          // Animate carousel to that mood
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _moodController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          });
+        }
+      }
+
+      print('✅ Loaded last mood successfully');
+    } catch (e) {
+      print('❌ Error fetching moods: $e');
+    }
+  }
+
+  Future<void> _logMood(Map<String, dynamic> mood) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('You must be logged in to log moods.')),
+        );
+        return;
+      }
+
+      await supabase.from('mood_logs').insert({
+        'user_id': userId,
+        'label': mood['label'],
+        'emoji': mood['emoji'],
+        'color_value': (mood['color'] as Color).value,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("🪶 Logged mood: ${mood['emoji']} ${mood['label']}"),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      _fetchMoodLogs(); // refresh after logging
+    } catch (e) {
+      print('❌ Error logging mood: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 🔹 Carousel
+        SizedBox(
+          height: 96,
+          child: PageView.builder(
+            controller: _moodController,
+            clipBehavior: Clip.none,
+            physics: const BouncingScrollPhysics(),
+            itemCount: moods.length,
+            onPageChanged: (i) => setState(() => _currentMood = i),
+            itemBuilder: (context, i) {
+              final mood = moods[i];
+              final color = mood['color'] as Color;
+              final selected = i == _currentMood;
+
+              return AnimatedScale(
+                scale: selected ? 1.05 : 0.94,
+                duration: const Duration(milliseconds: 220),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: selected ? () => _logMood(mood) : null,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: color.withOpacity(0.4)),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            mood['emoji'],
+                            style: const TextStyle(fontSize: 22),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            mood['label'],
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: color.withOpacity(0.9),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:hereforyou/data_source/fetch_users.dart';
 import 'package:hereforyou/models/users.dart';
 import 'package:hereforyou/screens/homepage/home/homepage_screen.dart';
 import 'package:hereforyou/widgets/app_loader.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,9 +37,12 @@ class _LoginScreenState extends State<LoginScreen> {
         );
 
         if (user.id != 0) {
+          final prefs = await SharedPreferences.getInstance();
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Welcome, ${user.username}!')));
+          await prefs.setInt('user_id', user.id);
+          await prefs.setString('username', user.username);
           navigateWithLoader(context, HomePage(userName: user.username));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

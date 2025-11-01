@@ -362,6 +362,7 @@ class _JournalPageState extends State<JournalPage>
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.pink,
+                                foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -670,6 +671,7 @@ class _JournalPageState extends State<JournalPage>
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.pink,
+                            foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),

@@ -32,14 +32,14 @@ class _LoginScreenState extends State<LoginScreen> {
           (u) =>
               u.email.toLowerCase() == email.toLowerCase() &&
               u.password == password,
-          orElse: () => User(id: 0, name: '', email: '', password: ''),
+          orElse: () => User(id: 0, username: '', email: '', password: ''),
         );
 
         if (user.id != 0) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Welcome, ${user.name}!')));
-          navigateWithLoader(context, HomePage(userName: user.name));
+          ).showSnackBar(SnackBar(content: Text('Welcome, ${user.username}!')));
+          navigateWithLoader(context, HomePage(userName: user.username));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Invalid email or password')),

@@ -12,9 +12,9 @@ import 'package:hereforyou/screens/homepage/home/exercises/breath_coach.dart';
 import 'package:hereforyou/screens/homepage/explore/helplines/helplines.dart';
 import 'package:hereforyou/screens/homepage/explore/resources/resources.dart';
 import 'package:hereforyou/screens/homepage/home/habit_tracker/habits_page.dart';
+import 'package:hereforyou/screens/homepage/home/mood_tracker/mood_carousel/mood_storage.dart';
+import 'package:hereforyou/screens/homepage/home/mood_tracker/mood_history/mood_history.dart';
 import 'package:hereforyou/screens/homepage/journal/journal_page.dart';
-import 'package:hereforyou/screens/homepage/home/mood_carousel/mood_storage.dart';
-import 'package:hereforyou/screens/homepage/home/mood_history/mood_history.dart';
 import 'package:hereforyou/utils/colormath.dart';
 import 'package:hereforyou/widgets/background_gradient.dart';
 import 'package:hereforyou/widgets/glass_effect.dart';
@@ -594,11 +594,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       const SizedBox(height: 20),
                       _affirmationCard(),
                       const SizedBox(height: 20),
-                      _challengeCard(),
-                      const SizedBox(height: 20),
+                      // _challengeCard(),
+                      // const SizedBox(height: 20),
                       // _habitReminderCard(),
-                      const HabitsPage(),
-                      const SizedBox(height: 20),
+                      // const HabitsPage(),
+                      // const SizedBox(height: 20),
                       _quickActionsRow1(),
                       const SizedBox(height: 26),
                       Text(

@@ -1,8 +1,8 @@
-# 💗 HereForYou
+# 💗 Safe Space
 
 > **An anonymous, safe, and empathetic platform for emotional expression, healing, and human connection.**
 
-HereForYou provides a judgment-free space where users can share their feelings, reflect through journaling, connect to listeners (AI + human), and access verified mental health resources worldwide.
+Safe Space provides a judgment-free space where users can share their feelings, reflect through journaling, connect to listeners (AI + human), and access verified mental health resources worldwide.
 
 ---
 
@@ -10,7 +10,7 @@ HereForYou provides a judgment-free space where users can share their feelings, 
 
 > “A digital safe space for people who feel unheard.”
 
-HereForYou combines empathy, privacy, and technology to create a platform that listens — helping users express emotions safely and find support through journaling, conversations, and community.
+Safe Space combines empathy, privacy, and technology to create a platform that listens — helping users express emotions safely and find support through journaling, conversations, and community.
 
 ---
 

@@ -144,7 +144,7 @@ homepage -
     │ (Android / iOS / Web) │
     └──────────┬──────────┘
                │
- HTTPS / JSON API Calls
+ 	HTTPS / JSON API Calls
                │
     ┌──────────▼──────────┐
     │   Express.js Server  │

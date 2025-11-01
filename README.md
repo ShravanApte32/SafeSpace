@@ -87,3 +87,80 @@ homepage -
 		- stats.dart
 	- safety & privacy
 		- safety_privacy.dart
+
+## 🧠 Key Features (Phase-wise)
+
+### **Phase 1 – MVP**
+- 🧭 Onboarding & Guest Mode  
+- 📔 Anonymous Journal (text/voice)  
+- 🌤 Daily Mood Check-in  
+- 🤖 AI Sentiment Detection  
+- ☎️ Helpline Directory (localized)  
+
+### **Phase 2 – Expansion**
+- 💬 Instant Listener Chat (Human + AI)  
+- 🌍 Community Board (anonymous sharing)  
+- 📈 Mood History & Insights  
+- 📶 Offline Journaling  
+
+### **Phase 3 – Advanced**
+- 🚨 Location-Based Crisis Alerts  
+- 🎙 AI Voice Companion  
+- 💖 Gamified Healing Journey  
+
+---
+
+## 🧰 API Overview (Express + Supabase)
+
+| Endpoint | Method | Description |
+|-----------|--------|-------------|
+| `/api/journal/create` | `POST` | Save journal entry (text/voice) |
+| `/api/journal/get` | `GET` | Fetch user’s journal history |
+| `/api/sentiment/analyze` | `POST` | Analyze text using OpenAI/Hugging Face |
+| `/api/helplines` | `GET` | Fetch country-based helpline data |
+| `/api/listener/connect` | `POST` | Connect to volunteer listener |
+| `/api/auth/signup` | `POST` | Register new user (optional) |
+| `/api/auth/login` | `POST` | Log in user |
+| `/api/insights/mood` | `GET` | Get mood trends and recommendations |
+
+---
+
+## 🗃 Database (Supabase Schema - Example)
+
+| Table | Columns |
+|--------|----------|
+| `users` | id, email, country, is_anonymous, created_at |
+| `journal_entries` | id, user_id, content, mood, sentiment_score, created_at |
+| `helplines` | id, country, name, phone, type |
+| `listeners` | id, name, language, availability_status |
+| `mood_trends` | id, user_id, mood, timestamp |
+
+---
+
+## 🧱 System Architecture Diagram
+
+    ┌────────────────────┐
+    │     Flutter App     │
+    │ (Android / iOS / Web) │
+    └──────────┬──────────┘
+               │
+ HTTPS / JSON API Calls
+               │
+    ┌──────────▼──────────┐
+    │   Express.js Server  │
+    │ (Hosted on Render)   │
+    └──────────┬──────────┘
+               │
+     REST / WebSocket / Realtime
+               │
+    ┌──────────▼──────────┐
+    │     Supabase DB      │
+    │ (PostgreSQL + Auth)  │
+    └──────────┬──────────┘
+               │
+    ┌──────────▼──────────┐
+    │  OpenAI / HuggingFace │
+    │ (Sentiment + AI Chat) │
+    └───────────────────────┘
+
+

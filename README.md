@@ -1,21 +1,43 @@
-# hereforyou
+# 💗 HereForYou
 
-A new Flutter project.
+> **An anonymous, safe, and empathetic platform for emotional expression, healing, and human connection.**
 
-## Getting Started
+HereForYou provides a judgment-free space where users can share their feelings, reflect through journaling, connect to listeners (AI + human), and access verified mental health resources worldwide.
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 🧭 Purpose
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+> “A digital safe space for people who feel unheard.”
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+HereForYou combines empathy, privacy, and technology to create a platform that listens — helping users express emotions safely and find support through journaling, conversations, and community.
 
-App Structure:
+---
+
+## 🌟 Core Values
+
+- 🛡 **Privacy:** Anonymous mode, end-to-end encrypted data  
+- 💬 **Empathy:** Emotionally intelligent interactions  
+- 🌍 **Accessibility:** Cross-platform, inclusive UI/UX  
+- 💡 **Global Reach:** Localized helplines & multi-language ready  
+
+---
+
+## ⚙️ Tech Stack
+
+| Layer | Technology | Purpose |
+|-------|-------------|----------|
+| **Frontend** | Flutter | Cross-platform app (Android, iOS, Web) |
+| **Backend API** | Node.js + Express (Hosted on Render) | REST API for journaling, AI chat, and analytics |
+| **Database** | Supabase (PostgreSQL) | Encrypted storage, Auth, and Realtime sync |
+| **AI Services** | OpenAI / Hugging Face | Sentiment detection, AI listener |
+| **Notifications** | Firebase Cloud Messaging | Daily mood prompts |
+| **Hosting** | Render + Supabase | Backend + Database |
+| **Version Control** | GitHub | Project management & collaboration |
+
+---
+
+## 🧩 App Architecture
 
 splash_screen -
 - splash_screen.dart

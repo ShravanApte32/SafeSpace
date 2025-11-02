@@ -5,6 +5,7 @@ import 'package:hereforyou/models/journal_entry.dart';
 import 'package:hereforyou/screens/homepage/journal/journal_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class JournalPage extends StatefulWidget {
   const JournalPage({super.key});
@@ -67,13 +68,23 @@ class _JournalPageState extends State<JournalPage>
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+  setState(() => _loading = true);
+  try {
     final data = await JournalStorage.getAll();
     setState(() {
       _entries = data;
       _loading = false;
     });
+  } catch (e) {
+    setState(() => _loading = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Error loading journals: ${e.toString()}"),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
   double _simpleSentiment(String text) {
     const pos = [
@@ -116,42 +127,49 @@ class _JournalPageState extends State<JournalPage>
   }
 
   Future<void> _save({String? editId}) async {
-    final txt = _controller.text.trim();
-    if (txt.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Write something to save.")));
-      return;
-    }
+  final txt = _controller.text.trim();
+  if (txt.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Write something to save."))
+    );
+    return;
+  }
 
-    final sentiment = _simpleSentiment(txt);
+  final sentiment = _simpleSentiment(txt);
+  
+  try {
     if (editId == null) {
       final entry = JournalEntry(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: '0', // Temporary ID, will be replaced by database
         text: txt,
         at: DateTime.now(),
         mood: _selectedMood,
         sentiment: sentiment,
+        isPrivate: _private, 
       );
       await JournalStorage.add(entry);
-      _entries.insert(0, entry);
+      await _load(); // Reload to get all entries with proper IDs
     } else {
       final i = _entries.indexWhere((e) => e.id == editId);
       if (i >= 0) {
-        _entries[i].text = txt;
-        _entries[i].at = DateTime.now();
-        _entries[i].mood = _selectedMood;
-        _entries[i].sentiment = sentiment;
-        await JournalStorage.update(_entries[i]);
-        _entries.sort((a, b) => b.at.compareTo(a.at));
+        // Create a new entry object with updated values instead of mutating fields
+        final updated = JournalEntry(
+          id: _entries[i].id,
+          text: txt,
+          at: DateTime.now(),
+          mood: _selectedMood,
+          sentiment: sentiment,
+          isPrivate: _private,
+        );
+        _entries[i] = updated;
+        await JournalStorage.update(updated);
+        await _load(); // Reload to refresh the list
       }
     }
 
     _controller.clear();
     _saveAnim.forward(from: 0.0);
-    setState(() {});
 
-    // Show a nicer success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -166,7 +184,15 @@ class _JournalPageState extends State<JournalPage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Error saving entry: ${e.toString()}"),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
   Future<void> _delete(String id) async {
     await JournalStorage.remove(id);
@@ -361,7 +387,8 @@ class _JournalPageState extends State<JournalPage>
                                 setState(() => _showComposer = true);
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.pink,
+                                backgroundColor: Colors.pink.shade300,
+                                foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
@@ -432,23 +459,25 @@ class _JournalPageState extends State<JournalPage>
         Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    DateFormat('EEEE, MMM d').format(DateTime.now()),
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+              child: Center(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      DateFormat('EEEE, MMM d').format(DateTime.now()),
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Last entry: $last',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    Text(
+                      'Last entry: $last',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                    ),
+                  ],
+                ),
               ),
             ),
             AnimatedBuilder(
@@ -543,35 +572,56 @@ class _JournalPageState extends State<JournalPage>
               const SizedBox(height: 12),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: _moodList().map((m) {
-                    final selected = m == _selectedMood;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedMood = m),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? _moodColor(m).withOpacity(0.2)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: selected
-                                ? _moodColor(m)
-                                : Colors.transparent,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          m,
-                          style: TextStyle(fontSize: 24, color: _moodColor(m)),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                child:// Replace the mood selection section with:
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Text(
+        'Select Mood:',
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          color: Colors.grey.shade700,
+          fontSize: 14,
+        ),
+      ),
+    ),
+    Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _moodList().map((m) {
+        final selected = m == _selectedMood;
+        return GestureDetector(
+          onTap: () => setState(() => _selectedMood = m),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: selected
+                  ? _moodColor(m).withOpacity(0.2)
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected
+                    ? _moodColor(m)
+                    : Colors.transparent,
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: Text(
+              m,
+              style: TextStyle(
+                fontSize: 24,
+                color: _moodColor(m),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    ),
+  ],
+),
               ),
             ],
           ),
@@ -669,7 +719,8 @@ class _JournalPageState extends State<JournalPage>
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.pink,
+                            backgroundColor: Colors.pink.shade300,
+                            foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
@@ -857,61 +908,65 @@ class _JournalPageState extends State<JournalPage>
   }
 
   Widget _buildEntryCard(JournalEntry e, int index) {
-    final df = DateFormat('MMM d, h:mm a');
-    final sentimentLabel = e.sentiment > 0.05
-        ? 'Positive'
-        : (e.sentiment < -0.05 ? 'Negative' : 'Neutral');
+  final df = DateFormat('MMM d, h:mm a');
+  final sentimentLabel = e.sentiment > 0.05
+      ? 'Positive'
+      : (e.sentiment < -0.05 ? 'Negative' : 'Neutral');
 
-    return FadeTransition(
-      opacity: _fadeAnim,
-      child: SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
-            .animate(
-              CurvedAnimation(
-                parent: _fadeAnim,
-                curve: Interval(0.1 * index, 1.0, curve: Curves.easeOut),
-              ),
-            ),
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: Material(
-            color: Colors.white,
+  return FadeTransition(
+    opacity: _fadeAnim,
+    child: SlideTransition(
+      position: Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+          .animate(
+        CurvedAnimation(
+          parent: _fadeAnim,
+          curve: Interval(0.1 * index, 1.0, curve: Curves.easeOut),
+        ),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          elevation: 2,
+          child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            elevation: 2,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => _openEdit(e),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: _moodColor(e.mood).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            e.mood,
-                            style: TextStyle(
-                              fontSize: 20,
-                              color: _moodColor(e.mood),
-                            ),
+            onTap: () {
+              if (!e.isPrivate) _openEdit(e);
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: _moodColor(e.mood).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          e.mood,
+                          style: TextStyle(
+                            fontSize: 20,
+                            color: _moodColor(e.mood),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            df.format(e.at),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
-                            ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          df.format(e.at),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700,
                           ),
                         ),
+                      ),
+                      // 👇 Hide the 3-dot menu if private
+                      if (!e.isPrivate)
                         PopupMenuButton<String>(
                           icon: Icon(
                             Icons.more_vert,
@@ -928,7 +983,8 @@ class _JournalPageState extends State<JournalPage>
                               ).then((_) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Entry copied to clipboard'),
+                                    content:
+                                        Text('Entry copied to clipboard'),
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
@@ -975,86 +1031,115 @@ class _JournalPageState extends State<JournalPage>
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _private
-                        ? GestureDetector(
-                            onTap: () => setState(() => _private = false),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(Icons.lock, color: Colors.grey.shade400),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Private - tap to reveal',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                    ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 👇 Private / Visible logic
+                  e.isPrivate
+                      ? GestureDetector(
+                          onTap: () async {
+                            // Reveal the entry
+                            await Supabase.instance.client
+                                .from('journals')
+                                .update({'is_private': false})
+                                .eq('id', e.id);
+                            setState(() {
+                              e.isPrivate = false;
+                            });
+                          },
+                          child: Container(
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 24),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.lock,
+                                    color: Colors.grey.shade400),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Private - tap to reveal',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          )
-                        : Text(
-                            e.text,
-                            style: const TextStyle(fontSize: 16, height: 1.5),
                           ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              e.sentiment > 0.05
-                                  ? Icons.sentiment_satisfied
-                                  : (e.sentiment < -0.05
-                                        ? Icons.sentiment_dissatisfied
-                                        : Icons.sentiment_neutral),
-                              size: 18,
-                              color: e.sentiment > 0.05
-                                  ? Colors.green
-                                  : (e.sentiment < -0.05
-                                        ? Colors.red
-                                        : Colors.grey),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              sentimentLabel,
-                              style: TextStyle(color: Colors.grey.shade600),
-                            ),
-                          ],
+                        )
+                      : GestureDetector(
+                          onLongPress: () async {
+                            // Hide again
+                            await Supabase.instance.client
+                                .from('journals')
+                                .update({'is_private': true})
+                                .eq('id', e.id);
+                            setState(() {
+                              e.isPrivate = true;
+                            });
+                          },
+                          child: Text(
+                            e.text,
+                            style: const TextStyle(
+                                fontSize: 16, height: 1.5),
+                          ),
                         ),
-                        Text(
-                          '${e.text.split(RegExp(r"\s+")).where((w) => w.isNotEmpty).length} words',
-                          style: TextStyle(color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            e.sentiment > 0.05
+                                ? Icons.sentiment_satisfied
+                                : (e.sentiment < -0.05
+                                    ? Icons.sentiment_dissatisfied
+                                    : Icons.sentiment_neutral),
+                            size: 18,
+                            color: e.sentiment > 0.05
+                                ? Colors.green
+                                : (e.sentiment < -0.05
+                                    ? Colors.red
+                                    : Colors.grey),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            sentimentLabel,
+                            style:
+                                TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${e.text.split(RegExp(r"\\s+")).where((w) => w.isNotEmpty).length} words',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text('Mind Journal'),
-        backgroundColor: Colors.pink,
+        title: Center(child: const Text('My Journal')),
+        backgroundColor: Colors.pink.shade300,
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -1064,9 +1149,10 @@ class _JournalPageState extends State<JournalPage>
               builder: (_) => AlertDialog(
                 title: const Text('About this Journal'),
                 content: const Text(
-                  'This journal is private and stored locally on your device. '
-                  'It helps you track your mood, daily thoughts, and writing trends over time.',
-                ),
+  'Your journal entries are securely stored in your personal space. '
+  'All data is private to you and helps track your mood, thoughts, and writing patterns over time. '
+  'Your privacy and data security are our top priorities.',
+),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),

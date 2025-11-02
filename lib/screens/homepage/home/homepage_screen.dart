@@ -753,7 +753,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           title: "Breathe",
           icon: Icons.self_improvement_rounded,
           color: Colors.purple,
-          onTap: _showBreathSheet,
+          onTap: () => Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (context) => BreathMeditationPage(accent: Colors.pink[400]!),
+  ),
+),
         ),
         _glassAction(
           title: "Helpline",
@@ -1154,30 +1159,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  void _showBreathSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white.withOpacity(0.0),
-      barrierColor: Colors.black.withOpacity(0.35),
-      builder: (context) {
-        return Glass(
-          blur: 30,
-          opacity: 0.28,
-          borderRadius: 28,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(28),
-              ),
-              color: Colors.white.withOpacity(0.8),
-            ),
-            child: BreathCoach(accent: accentColor),
-          ),
-        );
-      },
-    );
-  }
+  // void _showBreathSheet() {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     backgroundColor: Colors.white.withOpacity(0.0),
+  //     barrierColor: Colors.black.withOpacity(0.35),
+  //     builder: (context) {
+  //       return Glass(
+  //         blur: 30,
+  //         opacity: 0.28,
+  //         borderRadius: 28,
+  //         child: Container(
+  //           padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+  //           decoration: BoxDecoration(
+  //             borderRadius: const BorderRadius.vertical(
+  //               top: Radius.circular(28),
+  //             ),
+  //             color: Colors.white.withOpacity(0.8),
+  //           ),
+  //           child: BreathCoach(accent: accentColor),
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
 
   Widget _talkOption({
     required IconData icon,

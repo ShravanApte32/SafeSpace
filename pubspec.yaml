@@ -28,25 +28,22 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+  audioplayers: ^6.5.1
+  confetti: ^0.7.0
+  cupertino_icons: ^1.0.8
   flutter:
     sdk: flutter
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
+  flutter_tts: ^4.2.3
+  http: ^1.2.1
+  intl: ^0.20.2
   lottie: ^3.1.0
+  shared_preferences: ^2.2.3
+  smooth_page_indicator: ^1.1.0
+  supabase_flutter: ^2.0.0
   toastification: ^3.0.3
   url_launcher: ^6.3.2
-  http: ^1.2.1
-  shared_preferences: ^2.2.3
-  intl: ^0.20.2
-  smooth_page_indicator: ^1.1.0
-  confetti: ^0.7.0
-  supabase_flutter: ^2.0.0
 
 dev_dependencies:
-  flutter_test:
-    sdk: flutter
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -55,6 +52,8 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_launcher_icons: ^0.13.1
   flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
 
 flutter_icons:
   android: true
@@ -63,7 +62,6 @@ flutter_icons:
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
-
 # The following section is specific to Flutter packages.
 flutter:
   # The following line ensures that the Material Icons font is

@@ -752,11 +752,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           icon: Icons.self_improvement_rounded,
           color: Colors.purple,
           onTap: () => Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => BreathMeditationPage(accent: Colors.pink[400]!),
-  ),
-),
+            context,
+            MaterialPageRoute(
+              builder: (context) =>
+                  BreathMeditationPage(accent: Colors.pink[400]!),
+            ),
+          ),
         ),
         _glassAction(
           title: "Helpline",

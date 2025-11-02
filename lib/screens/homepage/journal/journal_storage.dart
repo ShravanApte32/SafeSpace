@@ -20,8 +20,6 @@ class JournalStorage {
     print('Raw response: $response');
     print('Response type: ${response.runtimeType}');
 
-    if (response == null) return [];
-
     final entries = (response as List)
         .map((e) {
           print('Mapping entry: $e');

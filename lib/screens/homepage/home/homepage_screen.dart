@@ -4,15 +4,12 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hereforyou/models/hearts.dart';
-import 'package:hereforyou/models/mood_logs.dart';
 import 'package:hereforyou/screens/homepage/home/challenges/quiz_helper.dart';
 import 'package:hereforyou/screens/homepage/chat/ai_chat/ai_chat.dart';
 import 'package:hereforyou/screens/homepage/chat/community_chat/community.dart';
 import 'package:hereforyou/screens/homepage/home/exercises/breath_coach.dart';
 import 'package:hereforyou/screens/homepage/explore/helplines/helplines.dart';
 import 'package:hereforyou/screens/homepage/explore/resources/resources.dart';
-import 'package:hereforyou/screens/homepage/home/habit_tracker/habits_page.dart';
-import 'package:hereforyou/screens/homepage/home/mood_tracker/mood_carousel/mood_storage.dart';
 import 'package:hereforyou/screens/homepage/home/mood_tracker/mood_history/mood_history.dart';
 import 'package:hereforyou/screens/homepage/journal/journal_page.dart';
 import 'package:hereforyou/utils/colormath.dart';
@@ -65,7 +62,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     viewportFraction: 0.32,
     initialPage: 2,
   );
-  int _currentMood = 2;
+  final int _currentMood = 2;
 
   final moods = <Map<String, dynamic>>[
     {'emoji': '😊', 'label': 'Okay', 'color': const Color(0xFF81C784)},
@@ -181,6 +178,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     },
   ];
 
+  // ignore: unused_element
   Widget _challengeCard() {
     if (_showCelebration) {
       return _buildCelebration();
@@ -1251,7 +1249,6 @@ class _MoodCarouselState extends State<MoodCarousel> {
   final supabase = Supabase.instance.client;
   int _currentMood = 0;
   List<Map<String, dynamic>> moods = [];
-  List<dynamic> _previousMoods = [];
 
   @override
   void initState() {

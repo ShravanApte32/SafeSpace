@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class BreathMeditationPage extends StatefulWidget {
   final Color accent;
@@ -17,13 +19,29 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
   
   // Meditation state
   bool _isBreathingActive = false;
+  bool _isPaused = false; // NEW: Track pause state
   int _breathCount = 0;
   int _sessionDuration = 0;
   String _currentPhase = "Ready";
   Timer? _sessionTimer;
+  Timer? _breathTimer;
   bool _voiceGuideEnabled = true;
   bool _ambientSoundsEnabled = false;
   int _selectedDuration = 300; // 5 minutes in seconds
+
+  // Phase durations for 4-7-8 breathing (in milliseconds)
+  final int _inhaleDuration = 4000; // 4 seconds
+  final int _holdDuration = 7000;   // 7 seconds  
+  final int _exhaleDuration = 8000; // 8 seconds
+
+  // Audio players
+  final AudioPlayer _ambientPlayer = AudioPlayer();
+  final AudioPlayer _bellPlayer = AudioPlayer();
+  final FlutterTts _flutterTts = FlutterTts();
+  
+  // Sound states
+  bool _isAmbientPlaying = false;
+  double _ambientVolume = 0.5;
 
   @override
   void initState() {
@@ -42,26 +60,113 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
     ));
 
     _controller.forward();
+    _initializeAudio();
+    _initializeTTS();
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    _sessionTimer?.cancel();
-    super.dispose();
+  void _initializeAudio() async {
+    await _ambientPlayer.setReleaseMode(ReleaseMode.loop);
+    await _bellPlayer.setReleaseMode(ReleaseMode.release);
+  }
+
+  void _initializeTTS() async {
+    await _flutterTts.setLanguage("en-US");
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.setVolume(1.0);
+    await _flutterTts.setPitch(1.0);
+  }
+
+  void _playAmbientSounds() async {
+    if (_ambientSoundsEnabled && !_isAmbientPlaying) {
+      try {
+        // Add your ambient sound file to assets/sounds/ and uncomment:
+        await _ambientPlayer.play(AssetSource('sounds/ambient_sound.mp3'));
+        setState(() {
+          _isAmbientPlaying = true;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ambient sounds started'),
+            duration: Duration(seconds: 2),
+            backgroundColor: widget.accent,
+          ),
+        );
+      } catch (e) {
+        print('Error playing ambient sounds: $e');
+      }
+    }
+  }
+
+  void _stopAmbientSounds() async {
+    if (_isAmbientPlaying) {
+      await _ambientPlayer.stop();
+      setState(() {
+        _isAmbientPlaying = false;
+      });
+    }
+  }
+
+  void _playBellSound() async {
+    if (_voiceGuideEnabled) {
+      try {
+        // Add your bell sound file to assets/sounds/ and uncomment:
+        await _bellPlayer.play(AssetSource('sounds/bell_sound.mp3'));
+      } catch (e) {
+        print('Error playing bell sound: $e');
+      }
+    }
+  }
+
+  void _speakPhaseGuidance(String phase) async {
+    // Allow voice guidance even when ambient sounds are playing
+    // But make sure TTS volume is appropriate
+    if (_voiceGuideEnabled && _isBreathingActive) {
+      // Adjust TTS volume based on ambient sounds
+      double ttsVolume = _ambientSoundsEnabled ? 1.0 : 1.0; // You can adjust this
+      await _flutterTts.setVolume(ttsVolume);
+      
+      String text = _getVoiceGuidanceText(phase);
+      await _flutterTts.speak(text);
+    }
+  }
+
+  String _getVoiceGuidanceText(String phase) {
+    switch (phase) {
+      case "Inhale":
+        return "Breathe in slowly through your nose. Count to four.";
+      case "Hold":
+        return "Hold your breath. Count to seven.";
+      case "Exhale":
+        return "Breathe out slowly through your mouth. Count to eight.";
+      case "Complete":
+        return "Session complete. Take a moment to notice how you feel.";
+      default:
+        return "Begin your breathing exercise.";
+    }
   }
 
   void _startBreathingSession() {
     setState(() {
       _isBreathingActive = true;
+      _isPaused = false; // NEW: Reset pause state
       _breathCount = 0;
       _sessionDuration = 0;
       _currentPhase = "Inhale";
     });
 
-    // Start session timer
+    // Start ambient sounds if enabled (but don't stop them when session pauses)
+    if (_ambientSoundsEnabled && !_isAmbientPlaying) {
+      _playAmbientSounds();
+    }
+
+    // Speak initial guidance
+    _speakPhaseGuidance("Inhale");
+    _playBellSound();
+
+    // Start session timer - UPDATED: Only increment when not paused
     _sessionTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-      if (mounted) {
+      if (mounted && _isBreathingActive && !_isPaused) { // NEW: Added !_isPaused check
         setState(() {
           _sessionDuration++;
         });
@@ -73,44 +178,381 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
       }
     });
 
-    // Simulate breath phases
-    _simulateBreathing();
+    // Start the breathing cycle
+    _startBreathCycle();
+  }
+
+  void _startBreathCycle() {
+    if (!_isBreathingActive) return;
+
+    // Inhale phase
+    setState(() {
+      _currentPhase = "Inhale";
+    });
+    _speakPhaseGuidance("Inhale");
+    _playBellSound();
+
+    // Schedule Hold phase
+    _breathTimer = Timer(Duration(milliseconds: _inhaleDuration), () {
+      if (!_isBreathingActive) return;
+      
+      setState(() {
+        _currentPhase = "Hold";
+      });
+      _speakPhaseGuidance("Hold");
+      _playBellSound();
+
+      // Schedule Exhale phase
+      _breathTimer = Timer(Duration(milliseconds: _holdDuration), () {
+        if (!_isBreathingActive) return;
+        
+        setState(() {
+          _currentPhase = "Exhale";
+        });
+        _speakPhaseGuidance("Exhale");
+        _playBellSound();
+
+        // Schedule next breath cycle
+        _breathTimer = Timer(Duration(milliseconds: _exhaleDuration), () {
+          if (!_isBreathingActive) return;
+          
+          setState(() {
+            _breathCount++;
+          });
+          
+          // Continue to next breath cycle
+          _startBreathCycle();
+        });
+      });
+    });
   }
 
   void _stopBreathingSession() {
     setState(() {
       _isBreathingActive = false;
+      _isPaused = false; // NEW: Reset pause state
       _currentPhase = "Complete";
     });
+    
+    // Stop all timers
     _sessionTimer?.cancel();
+    _breathTimer?.cancel();
+    
+    // Stop TTS if speaking
+    _flutterTts.stop();
+    
+    // DON'T stop ambient sounds here - they should continue
+    // _stopAmbientSounds(); // REMOVED THIS LINE
+    
+    // Play completion sound
+    _playBellSound();
+    
+    // Speak completion message
+    _speakPhaseGuidance("Complete");
   }
 
-  void _simulateBreathing() {
-    Future.delayed(Duration(milliseconds: 4000), () {
-      if (_isBreathingActive && mounted) {
-        setState(() {
-          _currentPhase = "Hold";
-        });
+  void _pauseBreathingSession() {
+    setState(() {
+      _isBreathingActive = false;
+      _isPaused = true; // NEW: Set pause state
+      _currentPhase = "Paused";
+    });
+    
+    // Stop breathing cycle timer but keep session timer running
+    _breathTimer?.cancel();
+    
+    // Stop TTS if speaking
+    _flutterTts.stop();
+    
+    // DON'T stop ambient sounds - they should continue
+    // _stopAmbientSounds(); // REMOVED THIS LINE
+    
+    // Play pause sound
+    _playBellSound();
+  }
+
+  void _resumeBreathingSession() {
+    setState(() {
+      _isBreathingActive = true;
+      _isPaused = false; // NEW: Reset pause state
+      _currentPhase = "Inhale";
+    });
+
+    // Speak guidance for current phase
+    _speakPhaseGuidance("Inhale");
+    _playBellSound();
+
+    // Resume breathing cycle
+    _startBreathCycle();
+  }
+
+  void _toggleAmbientSounds() {
+    setState(() {
+      _ambientSoundsEnabled = !_ambientSoundsEnabled;
+      
+      // If turning on ambient sounds, turn off voice guide
+      if (_ambientSoundsEnabled && _voiceGuideEnabled) {
+        _voiceGuideEnabled = false;
+        _flutterTts.stop(); // Stop any ongoing TTS
       }
     });
     
-    Future.delayed(Duration(milliseconds: 7000), () {
-      if (_isBreathingActive && mounted) {
-        setState(() {
-          _currentPhase = "Exhale";
-        });
+    if (_ambientSoundsEnabled) {
+      _playAmbientSounds();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ambient sounds enabled - Voice guide disabled'),
+          duration: Duration(seconds: 2),
+          backgroundColor: widget.accent,
+        ),
+      );
+    } else {
+      _stopAmbientSounds();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ambient sounds disabled'),
+          duration: Duration(seconds: 1),
+          backgroundColor: widget.accent,
+        ),
+      );
+    }
+  }
+
+  void _toggleVoiceGuidance() {
+    setState(() {
+      _voiceGuideEnabled = !_voiceGuideEnabled;
+      
+      // If turning on voice guide, turn off ambient sounds
+      if (_voiceGuideEnabled && _ambientSoundsEnabled) {
+        _ambientSoundsEnabled = false;
+        _stopAmbientSounds();
       }
     });
     
-    Future.delayed(Duration(milliseconds: 10000), () {
-      if (_isBreathingActive && mounted) {
-        setState(() {
-          _breathCount++;
-          _currentPhase = "Inhale";
-          _simulateBreathing(); // Continue cycle
-        });
-      }
-    });
+    if (!_voiceGuideEnabled && _isBreathingActive) {
+      // Stop any ongoing speech if voice guidance is disabled
+      _flutterTts.stop();
+    }
+    
+    String message = 'Voice guidance ${_voiceGuideEnabled ? 'enabled' : 'disabled'}';
+    if (_voiceGuideEnabled && _ambientSoundsEnabled) {
+      message += ' - Ambient sounds disabled';
+    }
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: Duration(seconds: 2),
+        backgroundColor: widget.accent,
+      ),
+    );
+  }
+
+  // Enhanced controls with volume slider
+  Widget _buildSoundControls() {
+    return Container(
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(25),
+        color: Colors.white.withOpacity(0.8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Sound Settings',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[800],
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          // Ambient Sounds Toggle with Volume
+          _buildSoundControlItem(
+            'Ambient Sounds',
+            Icons.music_note,
+            _ambientSoundsEnabled,
+            _toggleAmbientSounds,
+            showVolume: true,
+            volume: _ambientVolume,
+            onVolumeChanged: (value) {
+              setState(() {
+                _ambientVolume = value;
+              });
+              _ambientPlayer.setVolume(value);
+            },
+            isDisabledByOther: _voiceGuideEnabled, // Mutual exclusion
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Voice Guidance Toggle
+          _buildSoundControlItem(
+            'Voice Guide',
+            Icons.record_voice_over,
+            _voiceGuideEnabled,
+            _toggleVoiceGuidance,
+            isDisabledByOther: _ambientSoundsEnabled, // Mutual exclusion
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Timer Control
+          _buildSoundControlItem(
+          'Session Timer',
+          Icons.alarm_add,
+          true, // Always show as "active" since it's always available
+          () => _showDurationSelector(context),
+          showTimer: true, // New parameter
+          timerValue: '${_selectedDuration ~/ 60} min', // New parameter
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Update the _buildSoundControlItem method to handle timer display:
+Widget _buildSoundControlItem(
+  String label, 
+  IconData icon, 
+  bool isActive, 
+  VoidCallback onTap, {
+  bool showVolume = false,
+  bool showTimer = false, // NEW: For timer display
+  String timerValue = '', // NEW: Timer value to display
+  double volume = 0.5,
+  ValueChanged<double>? onVolumeChanged,
+  bool isDisabledByOther = false,
+}) {
+  bool isActuallyActive = isActive && !isDisabledByOther;
+  
+  return Column(
+    children: [
+      GestureDetector(
+        onTap: isDisabledByOther ? null : onTap,
+        child: Container(
+          padding: EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: isActuallyActive ? widget.accent.withOpacity(0.1) : Colors.grey.withOpacity(0.05),
+            border: Border.all(
+              color: isActuallyActive ? widget.accent.withOpacity(0.3) : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isActuallyActive ? widget.accent.withOpacity(0.2) : Colors.grey.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: isActuallyActive ? widget.accent : Colors.grey,
+                  size: 24,
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: isActuallyActive ? widget.accent : Colors.grey[700],
+                      ),
+                    ),
+                    if (showVolume)
+                      Text(
+                        'Volume: ${(volume * 100).toInt()}%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    if (showTimer) // NEW: Show timer value
+                      Text(
+                        'Duration: $timerValue',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    if (isDisabledByOther)
+                      Text(
+                        'Disabled - other audio active',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.orange,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isActuallyActive ? widget.accent : Colors.grey,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  showTimer ? 'SET' : (isActuallyActive ? 'ON' : 'OFF'), // NEW: Show SET for timer
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      
+      // Volume slider (keep existing)
+      if (showVolume && isActuallyActive)
+        Padding(
+          padding: EdgeInsets.only(top: 12, left: 60, right: 16),
+          child: Column(
+            children: [
+              Slider(
+                value: volume,
+                min: 0.0,
+                max: 1.0,
+                divisions: 10,
+                activeColor: widget.accent,
+                inactiveColor: widget.accent.withOpacity(0.3),
+                onChanged: onVolumeChanged,
+              ),
+            ],
+          ),
+        ),
+    ],
+  );
+}
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _sessionTimer?.cancel();
+    _breathTimer?.cancel();
+    _ambientPlayer.dispose();
+    _bellPlayer.dispose();
+    _flutterTts.stop();
+    super.dispose();
   }
 
   String _formatTime(int seconds) {
@@ -157,11 +599,11 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
                   _buildInteractiveStats(),
                   const SizedBox(height: 32),
                   
-                  // Meditation controls
-                  _buildMeditationControls(),
-                  const SizedBox(height: 20),
+                  // Enhanced sound controls
+                  _buildSoundControls(),
+                  const SizedBox(height: 32),
                   
-                  // Additional breathing techniques
+                  // Breathing techniques
                   _buildBreathingTechniques(),
                   const SizedBox(height: 30),
                 ],
@@ -305,6 +747,21 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
     );
   }
 
+  String _getPhaseInstruction(String phase) {
+    switch (phase) {
+      case "Inhale":
+        return "Breathe in slowly through your nose\nCount silently to 4";
+      case "Hold":
+        return "Hold your breath gently\nCount silently to 7";
+      case "Exhale":
+        return "Breathe out slowly through your mouth\nCount silently to 8";
+      case "Complete":
+        return "Session complete!\nTake a moment to notice how you feel";
+      default:
+        return "Press begin to start your\n4-7-8 breathing exercise";
+    }
+  }
+
   Widget _buildPhaseIndicators() {
     final phases = ["Inhale", "Hold", "Exhale"];
     return Row(
@@ -326,6 +783,7 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
     );
   }
 
+  // Update the button tap handler to use pause/resume
   Widget _buildEnhancedBreathCoach() {
     return Container(
       width: double.infinity,
@@ -347,7 +805,7 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
       child: Column(
         children: [
           Text(
-            'Ready to Begin?',
+            _getSessionTitle(),
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -356,15 +814,21 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
           ),
           const SizedBox(height: 16),
           GestureDetector(
-            onTap: _isBreathingActive ? _stopBreathingSession : _startBreathingSession,
+            onTap: () {
+              if (_isBreathingActive) {
+                _pauseBreathingSession();
+              } else if (_isPaused) {
+                _resumeBreathingSession();
+              } else {
+                _startBreathingSession();
+              }
+            },
             child: AnimatedContainer(
               duration: Duration(milliseconds: 400),
-              padding: EdgeInsets.symmetric(horizontal: 50, vertical: 18),
+              padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: _isBreathingActive 
-                    ? [Colors.redAccent, Colors.orangeAccent]
-                    : [widget.accent, widget.accent.withOpacity(0.8)],
+                  colors: _getButtonGradient(),
                 ),
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
@@ -379,15 +843,15 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    _isBreathingActive ? Icons.pause : Icons.play_arrow,
+                    _getButtonIcon(),
                     color: Colors.white,
-                    size: 28,
+                    size: 22,
                   ),
-                  SizedBox(width: 12),
+                  SizedBox(width: 8),
                   Text(
-                    _isBreathingActive ? 'Pause Session' : 'Begin Breathing',
+                    _getButtonText(),
                     style: TextStyle(
-                      fontSize: 20,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
@@ -401,18 +865,41 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
     );
   }
 
-  String _getPhaseInstruction(String phase) {
-    switch (phase) {
-      case "Inhale":
-        return "Breathe in slowly through your nose\nCount silently to 4";
-      case "Hold":
-        return "Hold your breath gently\nCount silently to 7";
-      case "Exhale":
-        return "Breathe out slowly through your mouth\nCount silently to 8";
-      case "Complete":
-        return "Session complete!\nTake a moment to notice how you feel";
-      default:
-        return "Press begin to start your\n4-7-8 breathing exercise";
+  // Helper methods for button states
+  String _getSessionTitle() {
+    if (_isBreathingActive) return 'Breathing Session';
+    if (_isPaused) return 'Session Paused';
+    if (_currentPhase == "Complete") return 'Session Complete';
+    return 'Ready to Begin?';
+  }
+
+  List<Color> _getButtonGradient() {
+    if (_isBreathingActive) {
+      return [Colors.orangeAccent, Colors.orange];
+    } else if (_isPaused) {
+      return [Colors.green, Colors.greenAccent];
+    } else {
+      return [widget.accent, widget.accent.withOpacity(0.8)];
+    }
+  }
+
+  IconData _getButtonIcon() {
+    if (_isBreathingActive) {
+      return Icons.pause;
+    } else if (_isPaused) {
+      return Icons.play_arrow;
+    } else {
+      return Icons.play_arrow;
+    }
+  }
+
+  String _getButtonText() {
+    if (_isBreathingActive) {
+      return 'Pause Session';
+    } else if (_isPaused) {
+      return 'Resume Session';
+    } else {
+      return 'Begin Breathing';
     }
   }
 
@@ -525,124 +1012,6 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
     );
   }
 
-  Widget _buildMeditationControls() {
-    return Container(
-      padding: EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
-        color: Colors.white.withOpacity(0.8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            'Meditation Settings',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[800],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildToggleControl(
-                'Sounds',
-                Icons.music_note,
-                _ambientSoundsEnabled,
-                onTap: _toggleAmbientSounds,
-              ),
-              _buildToggleControl(
-                'Guide',
-                Icons.record_voice_over,
-                _voiceGuideEnabled,
-                onTap: _toggleVoiceGuidance,
-              ),
-              _buildActionControl(
-                'Timer',
-                Icons.alarm_add,
-                onTap: () => _showDurationSelector(context),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToggleControl(String label, IconData icon, bool isActive, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: isActive ? widget.accent.withOpacity(0.15) : Colors.grey.withOpacity(0.1),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isActive ? widget.accent : Colors.transparent,
-                width: 2,
-              ),
-            ),
-            child: Icon(
-              icon,
-              color: isActive ? widget.accent : Colors.grey,
-              size: 28,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: isActive ? widget.accent : Colors.grey,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionControl(String label, IconData icon, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: Colors.grey,
-              size: 28,
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBreathingTechniques() {
     return Container(
       padding: EdgeInsets.all(24),
@@ -740,32 +1109,6 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
     );
   }
 
-  void _toggleAmbientSounds() {
-    setState(() {
-      _ambientSoundsEnabled = !_ambientSoundsEnabled;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Ambient sounds ${_ambientSoundsEnabled ? 'enabled' : 'disabled'}'),
-        duration: Duration(seconds: 1),
-        backgroundColor: widget.accent,
-      ),
-    );
-  }
-
-  void _toggleVoiceGuidance() {
-    setState(() {
-      _voiceGuideEnabled = !_voiceGuideEnabled;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Voice guidance ${_voiceGuideEnabled ? 'enabled' : 'disabled'}'),
-        duration: Duration(seconds: 1),
-        backgroundColor: widget.accent,
-      ),
-    );
-  }
-
   void _showDurationSelector(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -791,6 +1134,7 @@ class _BreathMeditationPageState extends State<BreathMeditationPage>
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: widget.accent,
+                  foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(25),
@@ -901,24 +1245,20 @@ class BreathPulseAnimation extends StatefulWidget {
 
 class _BreathPulseAnimationState extends State<BreathPulseAnimation>
     with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+  late AnimationController _breathController;
+  late Animation<double> _scaleAnimation;
+  String _lastPhase = "";
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
+    _breathController = AnimationController(
       duration: _getPhaseDuration(),
       vsync: this,
-    )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.4,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOutSine,
-    ));
+    );
+    
+    _setupAnimationForPhase();
+    _lastPhase = widget.currentPhase;
   }
 
   Duration _getPhaseDuration() {
@@ -926,42 +1266,117 @@ class _BreathPulseAnimationState extends State<BreathPulseAnimation>
       case "Inhale":
         return Duration(milliseconds: 4000);
       case "Hold":
-        return Duration(milliseconds: 3000);
+        return Duration(milliseconds: 7000);
       case "Exhale":
-        return Duration(milliseconds: 3000);
+        return Duration(milliseconds: 8000);
       default:
-        return Duration(milliseconds: 3000);
+        return Duration(milliseconds: 4000);
+    }
+  }
+
+  void _setupAnimationForPhase() {
+    // Always reset the controller when setting up a new animation
+    _breathController.stop();
+    _breathController.duration = _getPhaseDuration();
+    
+    switch (widget.currentPhase) {
+      case "Inhale":
+        // Grow from small to large during inhale
+        _scaleAnimation = Tween<double>(
+          begin: 0.8,
+          end: 1.4,
+        ).animate(CurvedAnimation(
+          parent: _breathController,
+          curve: Curves.easeInOut,
+        ));
+        if (widget.isActive) {
+          _breathController.forward(from: 0.0); // Always start from beginning
+        } else {
+          _breathController.value = 0.0; // Reset to start
+        }
+        break;
+        
+      case "Hold":
+        // Stay at the large size (no animation during hold)
+        _scaleAnimation = Tween<double>(
+          begin: 1.4,
+          end: 1.4,
+        ).animate(CurvedAnimation(
+          parent: _breathController,
+          curve: Curves.linear,
+        ));
+        if (widget.isActive) {
+          _breathController.forward(from: 0.0); // Instantly complete to 1.4
+        } else {
+          _breathController.value = 0.0; // Reset to start (will show 1.4 immediately)
+        }
+        break;
+        
+      case "Exhale":
+        // Shrink from large to small during exhale
+        _scaleAnimation = Tween<double>(
+          begin: 1.4,
+          end: 0.8,
+        ).animate(CurvedAnimation(
+          parent: _breathController,
+          curve: Curves.easeInOut,
+        ));
+        if (widget.isActive) {
+          _breathController.forward(from: 0.0); // Always start from beginning
+        } else {
+          _breathController.value = 0.0; // Reset to start
+        }
+        break;
+        
+      default:
+        // Default to normal size when not active
+        _scaleAnimation = Tween<double>(
+          begin: 1.0,
+          end: 1.0,
+        ).animate(CurvedAnimation(
+          parent: _breathController,
+          curve: Curves.linear,
+        ));
+        _breathController.value = 0.0; // Reset to start
+        break;
     }
   }
 
   @override
   void didUpdateWidget(BreathPulseAnimation oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.currentPhase != oldWidget.currentPhase) {
-      _pulseController.duration = _getPhaseDuration();
-    }
-    if (widget.isActive != oldWidget.isActive) {
-      if (widget.isActive) {
-        _pulseController.repeat(reverse: true);
-      } else {
-        _pulseController.stop();
+    
+    // Only reset and restart animation if phase actually changed
+    if (widget.currentPhase != _lastPhase || 
+        widget.isActive != oldWidget.isActive) {
+      
+      _lastPhase = widget.currentPhase;
+      _setupAnimationForPhase();
+      
+      // If we're active and in a breathing phase, start the animation
+      if (widget.isActive && 
+          ["Inhale", "Hold", "Exhale"].contains(widget.currentPhase)) {
+        _breathController.forward(from: 0.0);
+      } else if (!widget.isActive) {
+        // If session stopped, reset to normal size
+        _breathController.value = 0.0;
       }
     }
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
+    _breathController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _pulseAnimation,
+      animation: _scaleAnimation,
       builder: (context, child) {
         return Transform.scale(
-          scale: widget.isActive ? _pulseAnimation.value : 1.0,
+          scale: _scaleAnimation.value,
           child: child,
         );
       },

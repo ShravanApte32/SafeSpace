@@ -1,5 +1,7 @@
 // ignore_for_file: use_build_context_synchronously, deprecated_member_use, unnecessary_brace_in_string_interps
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hereforyou/models/journal_entry.dart';
 import 'package:hereforyou/screens/homepage/journal/journal_storage.dart';
@@ -68,186 +70,426 @@ class _JournalPageState extends State<JournalPage>
   }
 
   Future<void> _load() async {
-  setState(() => _loading = true);
-  try {
-    final data = await JournalStorage.getAll();
-    setState(() {
-      _entries = data;
-      _loading = false;
-    });
-  } catch (e) {
-    setState(() => _loading = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Error loading journals: ${e.toString()}"),
-        backgroundColor: Colors.red,
-      ),
-    );
+    setState(() => _loading = true);
+    try {
+      final data = await JournalStorage.getAll();
+      setState(() {
+        _entries = data;
+        _loading = false;
+      });
+      _debugHeatmap(); // Add this line
+    } catch (e) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error loading journals: ${e.toString()}"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
-}
 
   double _simpleSentiment(String text) {
-    const pos = [
-      'good',
-      'great',
-      'happy',
-      'love',
-      'calm',
-      'relaxed',
-      'grateful',
-      'joy',
-      'win',
-      'success',
-      'hope',
-    ];
-    const neg = [
-      'bad',
-      'sad',
-      'angry',
-      'hate',
-      'stress',
-      'anxious',
-      'tired',
-      'alone',
-      'depress',
-      'worried',
-    ];
+    if (text.isEmpty) return 0.0;
+
+    // Enhanced word lists with weights
+    final Map<String, double> positiveWords = {
+      'excellent': 3.0,
+      'amazing': 2.5,
+      'wonderful': 2.5,
+      'fantastic': 2.5,
+      'great': 2.0,
+      'good': 1.5,
+      'happy': 2.0,
+      'joy': 2.0,
+      'love': 2.5,
+      'calm': 1.5,
+      'peaceful': 1.5,
+      'relaxed': 1.5,
+      'grateful': 2.0,
+      'thankful': 2.0,
+      'blessed': 2.0,
+      'win': 1.5,
+      'success': 2.0,
+      'achievement': 1.5,
+      'progress': 1.0,
+      'hope': 1.5,
+      'hopeful': 1.5,
+      'excited': 2.0,
+      'proud': 2.0,
+      'confident': 1.5,
+      'optimistic': 1.5,
+      'better': 1.0,
+      'improved': 1.0,
+      'nice': 1.0,
+      'pleasant': 1.0,
+      'beautiful': 1.5,
+      'awesome': 2.0,
+      'brilliant': 2.0,
+      'perfect': 2.5,
+      'yay': 1.5,
+      'yeah': 1.0,
+      'wow': 1.5,
+      'smile': 1.0,
+      'laughter': 1.5,
+    };
+
+    final Map<String, double> negativeWords = {
+      'terrible': 3.0,
+      'awful': 2.5,
+      'horrible': 2.5,
+      'hate': 2.5,
+      'bad': 2.0,
+      'sad': 2.0,
+      'angry': 2.0,
+      'mad': 2.0,
+      'frustrated': 2.0,
+      'stress': 2.0,
+      'stressed': 2.0,
+      'anxious': 2.0,
+      'anxiety': 2.0,
+      'worried': 1.5,
+      'nervous': 1.5,
+      'scared': 2.0,
+      'afraid': 2.0,
+      'tired': 1.5,
+      'exhausted': 2.0,
+      'depressed': 2.5,
+      'depression': 2.5,
+      'alone': 2.0,
+      'lonely': 2.0,
+      'hurt': 2.0,
+      'pain': 2.0,
+      'suffering': 2.5,
+      'failure': 2.0,
+      'failed': 2.0,
+      'lost': 1.5,
+      'confused': 1.5,
+      'disappointed': 2.0,
+      'upset': 1.5,
+      'annoyed': 1.5,
+      'irritated': 1.5,
+      'ugh': 1.5,
+      'sigh': 1.0,
+      'cry': 2.0,
+      'tears': 2.0,
+      'regret': 2.0,
+    };
+
+    // Negation words that flip the sentiment of following words
+    final negationWords = {
+      'not',
+      'no',
+      'never',
+      'nothing',
+      'without',
+      'cannot',
+    };
+
     final t = text.toLowerCase();
-    int score = 0;
-    for (final w in pos) {
-      if (t.contains(w)) score += 2;
+    double score = 0.0;
+    final words = t.split(RegExp(r'\s+'));
+    final wordCount = words.length;
+
+    bool nextWordNegated = false;
+
+    for (int i = 0; i < words.length; i++) {
+      String word = words[i].replaceAll(RegExp(r'[^\w]'), '');
+
+      // Check for negation words
+      if (negationWords.contains(word)) {
+        nextWordNegated = true;
+        continue;
+      }
+
+      // Check positive words
+      if (positiveWords.containsKey(word)) {
+        double wordScore = positiveWords[word]!;
+        score += nextWordNegated ? -wordScore : wordScore;
+        nextWordNegated = false;
+      }
+
+      // Check negative words
+      if (negativeWords.containsKey(word)) {
+        double wordScore = negativeWords[word]!;
+        score += nextWordNegated ? wordScore : -wordScore; // Note the flip here
+        nextWordNegated = false;
+      }
+
+      // Reset negation after one word (simple approach)
+      if (nextWordNegated && !negationWords.contains(word)) {
+        nextWordNegated = false;
+      }
     }
-    for (final w in neg) {
-      if (t.contains(w)) score -= 2;
+
+    // Punctuation analysis
+    final exclamationCount = '!'.allMatches(t).length;
+    final questionCount = '?'.allMatches(t).length;
+    final ellipsisCount = '...'.allMatches(t).length;
+
+    // Exclamation points can amplify sentiment
+    if (exclamationCount > 0) {
+      final amplification =
+          exclamationCount * 0.1 * (score.abs() > 0 ? score.sign : 1);
+      score += amplification;
     }
-    if (t.contains('!')) score += 1;
-    if (t.contains('...')) score -= 1;
-    final len = t.split(RegExp(r'\s+')).length.clamp(1, 200);
-    return (score / (2 * len)).clamp(-1.0, 1.0);
+
+    // Questions might indicate uncertainty
+    if (questionCount > 2) {
+      score *= 0.8; // Reduce confidence for many questions
+    }
+
+    // Ellipsis often indicates hesitation or trailing off
+    if (ellipsisCount > 0) {
+      score *= 0.7;
+    }
+
+    // Capitalized words can indicate strong emotion
+    final capitalizedWords = RegExp(r'\b[A-Z][a-z]+\b').allMatches(text).length;
+    if (capitalizedWords > 0) {
+      final emphasis =
+          capitalizedWords * 0.05 * (score.abs() > 0 ? score.sign : 1);
+      score += emphasis;
+    }
+
+    // Normalize by word count (but don't over-normalize short texts)
+    final normalizationFactor = wordCount > 5 ? wordCount : 5.0;
+    double normalizedScore = score / normalizationFactor;
+
+    // Apply non-linear scaling to make extreme scores more rare
+    if (normalizedScore > 0) {
+      normalizedScore = 1.0 - (1.0 / (1.0 + normalizedScore));
+    } else if (normalizedScore < 0) {
+      normalizedScore = -1.0 + (1.0 / (1.0 - normalizedScore));
+    }
+
+    return normalizedScore.clamp(-1.0, 1.0);
+  }
+
+  String getSentimentLabel(double sentiment) {
+    if (sentiment > 0.3) return 'Very Positive';
+    if (sentiment > 0.1) return 'Positive';
+    if (sentiment > -0.1) return 'Neutral';
+    if (sentiment > -0.3) return 'Negative';
+    return 'Very Negative';
   }
 
   Future<void> _save({String? editId}) async {
-  final txt = _controller.text.trim();
-  if (txt.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Write something to save."))
-    );
-    return;
-  }
+    final txt = _controller.text.trim();
+    if (txt.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Write something to save.")));
+      return;
+    }
 
-  final sentiment = _simpleSentiment(txt);
-  
-  try {
-    if (editId == null) {
-      final entry = JournalEntry(
-        id: '0', // Temporary ID, will be replaced by database
-        text: txt,
-        at: DateTime.now(),
-        mood: _selectedMood,
-        sentiment: sentiment,
-        isPrivate: _private, 
-      );
-      await JournalStorage.add(entry);
-      await _load(); // Reload to get all entries with proper IDs
-    } else {
-      final i = _entries.indexWhere((e) => e.id == editId);
-      if (i >= 0) {
-        // Create a new entry object with updated values instead of mutating fields
-        final updated = JournalEntry(
-          id: _entries[i].id,
+    final sentiment = _simpleSentiment(txt);
+
+    try {
+      if (editId == null) {
+        final entry = JournalEntry(
+          id: '0', // Temporary ID, will be replaced by database
           text: txt,
           at: DateTime.now(),
           mood: _selectedMood,
           sentiment: sentiment,
           isPrivate: _private,
         );
-        _entries[i] = updated;
-        await JournalStorage.update(updated);
-        await _load(); // Reload to refresh the list
+        await JournalStorage.add(entry);
+        await _load(); // Reload to get all entries with proper IDs
+      } else {
+        final i = _entries.indexWhere((e) => e.id == editId);
+        if (i >= 0) {
+          // Create a new entry object with updated values instead of mutating fields
+          final updated = JournalEntry(
+            id: _entries[i].id,
+            text: txt,
+            at: DateTime.now(),
+            mood: _selectedMood,
+            sentiment: sentiment,
+            isPrivate: _private,
+          );
+          _entries[i] = updated;
+          await JournalStorage.update(updated);
+          await _load(); // Reload to refresh the list
+        }
       }
-    }
 
-    _controller.clear();
-    _saveAnim.forward(from: 0.0);
+      _controller.clear();
+      _saveAnim.forward(from: 0.0);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
-            const Text("Entry saved successfully"),
-          ],
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              const Text("Entry saved successfully"),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Error saving entry: ${e.toString()}"),
-        backgroundColor: Colors.red,
-      ),
-    );
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error saving entry: ${e.toString()}"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
-}
 
   Future<void> _delete(String id) async {
-    await JournalStorage.remove(id);
+    final deletedEntry = _entries.firstWhere((e) => e.id == id);
+    final deletedIndex = _entries.indexWhere((e) => e.id == id);
+
+    // Remove from local state only
     setState(() => _entries.removeWhere((e) => e.id == id));
 
     // Show undo snackbar
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text("Entry deleted"),
-        action: SnackBarAction(
-          label: 'UNDO',
-          textColor: Colors.white,
-          onPressed: () async {
-            await _load(); // Reload to undo delete
-          },
-        ),
+    final snackBar = SnackBar(
+      content: const Text("Entry deleted"),
+      action: SnackBarAction(
+        label: 'UNDO',
+        textColor: Colors.white,
+        onPressed: () {
+          // Restore to local state - database was never touched
+          setState(() {
+            _entries.insert(deletedIndex, deletedEntry);
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Entry restored"),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
       ),
+      duration: const Duration(seconds: 5),
     );
+
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+
+    // Wait for the snackbar duration to see if user clicks undo
+    await Future.delayed(const Duration(seconds: 5));
+
+    // If we get here and the entry is still not in the list, delete from database
+    if (mounted && !_entries.any((e) => e.id == id)) {
+      await JournalStorage.remove(id);
+      print("Entry permanently deleted from database");
+    }
   }
 
   int _calcStreak() {
     if (_entries.isEmpty) return 0;
-    final daysWithEntries = _entries
+
+    // Get unique dates (just year-month-day) when entries were made
+    final entryDates = _entries
         .map((e) => DateTime(e.at.year, e.at.month, e.at.day))
-        .toSet();
-    int streak = 0;
-    var day = DateTime.now();
+        .toSet()
+        .toList();
+
+    // Sort dates in descending order (most recent first)
+    entryDates.sort((a, b) => b.compareTo(a));
+
+    final today = DateTime.now();
+    final yesterday = today.subtract(const Duration(days: 1));
+
+    final latestEntryDate = entryDates.first;
+    final isToday = _isSameDay(latestEntryDate, today);
+    final isYesterday = _isSameDay(latestEntryDate, yesterday);
+
+    // If latest entry is neither today nor yesterday, streak is broken
+    if (!isToday && !isYesterday) return 0;
+
+    // Start counting from the latest entry day
+    int streak = 1; // Count the latest entry day
+    DateTime currentDay = isToday ? today : yesterday;
+
+    // Check consecutive days backwards starting from day before latest entry
+    currentDay = currentDay.subtract(const Duration(days: 1));
+
     while (true) {
-      final d = DateTime(day.year, day.month, day.day);
-      if (daysWithEntries.contains(d)) {
+      // Check if there's an entry for this previous day
+      final hasEntryForDay = entryDates.any(
+        (date) => _isSameDay(date, currentDay),
+      );
+
+      if (hasEntryForDay) {
         streak++;
-        day = day.subtract(const Duration(days: 1));
+        currentDay = currentDay.subtract(const Duration(days: 1));
       } else {
-        break;
+        break; // Streak broken
       }
     }
+
     return streak;
   }
 
-  Map<DateTime, int> _heatMapCounts({int weeks = 6}) {
+  // Helper method to compare if two dates are the same day
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  Map<DateTime, int> _heatMapCounts() {
     final Map<DateTime, int> map = {};
     final now = DateTime.now();
-    for (int i = 0; i < weeks * 7; i++) {
-      final d = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(Duration(days: i));
-      map[d] = 0;
+
+    // Get the first day of current month
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    // Get the last day of current month
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
+
+    // Initialize all dates in current month with 0
+    DateTime currentDate = firstDayOfMonth;
+    while (currentDate.isBefore(lastDayOfMonth) ||
+        _isSameDay(currentDate, lastDayOfMonth)) {
+      map[DateTime(currentDate.year, currentDate.month, currentDate.day)] = 0;
+      currentDate = currentDate.add(const Duration(days: 1));
     }
-    for (final e in _entries) {
-      final d = DateTime(e.at.year, e.at.month, e.at.day);
-      if (map.containsKey(d)) map[d] = map[d]! + 1;
+
+    // Count entries
+    for (final entry in _entries) {
+      final entryDate = DateTime(entry.at.year, entry.at.month, entry.at.day);
+      if (map.containsKey(entryDate)) {
+        map[entryDate] = map[entryDate]! + 1;
+      }
     }
+
     return map;
+  }
+
+  void _debugHeatmap() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
+
+    print('=== HEATMAP DEBUG ===');
+    print('Today: ${DateFormat('EEEE, MMM d, yyyy').format(now)}');
+    print('Month: ${DateFormat('MMMM yyyy').format(now)}');
+    print(
+      'Month range: ${DateFormat('MMM d').format(firstDayOfMonth)} - ${DateFormat('MMM d').format(lastDayOfMonth)}',
+    );
+    print('Today has entry: ${_entries.any((e) => _isSameDay(e.at, now))}');
+
+    // Debug: Check if today is in the heatmap
+    final heatmap = _heatMapCounts();
+    print('Today in heatmap: ${heatmap.containsKey(today)}');
+    print('Today count: ${heatmap[today]}');
+
+    // Count total entries in heatmap
+    final totalEntriesInHeatmap = heatmap.values
+        .where((count) => count > 0)
+        .length;
+    print('Total days with entries this month: $totalEntriesInHeatmap');
   }
 
   void _pickPromptRandom() {
@@ -441,10 +683,11 @@ class _JournalPageState extends State<JournalPage>
 
   Color _heatColorForCount(int count) {
     if (count <= 0) return Colors.grey.shade200;
-    if (count == 1) return Colors.lightGreen.shade200;
-    if (count == 2) return Colors.green.shade300;
-    if (count == 3) return Colors.pink.shade300;
-    return Colors.pink.shade400;
+    if (count == 1) return const Color(0xFFFFB6C1); // Light pink
+    if (count == 2) return const Color(0xFFFF91A4); // Medium light pink
+    if (count == 3) return const Color(0xFFFF6B8B); // Medium pink
+    if (count == 4) return const Color(0xFFFF4777); // Pink
+    return const Color(0xFFFF2D62); // Deep pink
   }
 
   Widget _buildHeader() {
@@ -474,7 +717,10 @@ class _JournalPageState extends State<JournalPage>
                     const SizedBox(height: 4),
                     Text(
                       'Last entry: $last',
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -572,56 +818,56 @@ class _JournalPageState extends State<JournalPage>
               const SizedBox(height: 12),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child:// Replace the mood selection section with:
-Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(
-        'Select Mood:',
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: Colors.grey.shade700,
-          fontSize: 14,
-        ),
-      ),
-    ),
-    Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _moodList().map((m) {
-        final selected = m == _selectedMood;
-        return GestureDetector(
-          onTap: () => setState(() => _selectedMood = m),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: selected
-                  ? _moodColor(m).withOpacity(0.2)
-                  : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: selected
-                    ? _moodColor(m)
-                    : Colors.transparent,
-                width: selected ? 2 : 1,
-              ),
-            ),
-            child: Text(
-              m,
-              style: TextStyle(
-                fontSize: 24,
-                color: _moodColor(m),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    ),
-  ],
-),
+                child: // Replace the mood selection section with:
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Text(
+                        'Select Mood:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade700,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _moodList().map((m) {
+                        final selected = m == _selectedMood;
+                        return GestureDetector(
+                          onTap: () => setState(() => _selectedMood = m),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? _moodColor(m).withOpacity(0.2)
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: selected
+                                    ? _moodColor(m)
+                                    : Colors.transparent,
+                                width: selected ? 2 : 1,
+                              ),
+                            ),
+                            child: Text(
+                              m,
+                              style: TextStyle(
+                                fontSize: 24,
+                                color: _moodColor(m),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -741,72 +987,8 @@ Column(
   }
 
   Widget _buildHeatMap() {
-    final map = _heatMapCounts(weeks: 8);
+    final map = _heatMapCounts();
     final now = DateTime.now();
-    final List<Widget> rows = [];
-
-    // Weekday labels
-    final weekdays = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-    rows.add(
-      Row(
-        children: [
-          const SizedBox(width: 24),
-          ...List.generate(7, (i) {
-            return Container(
-              margin: const EdgeInsets.all(4),
-              width: 14,
-              child: Center(
-                child: Text(
-                  weekdays[i],
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-
-    // Vertical by weekday
-    for (int weekday = 0; weekday < 7; weekday++) {
-      rows.add(
-        Row(
-          children: [
-            Container(
-              width: 24,
-              alignment: Alignment.center,
-              child: Text(
-                weekday == 0 ? 'This week' : '',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-              ),
-            ),
-            ...List.generate(8, (week) {
-              final offset = week * 7 + weekday;
-              final day = DateTime(
-                now.year,
-                now.month,
-                now.day,
-              ).subtract(Duration(days: offset));
-              final count = map[DateTime(day.year, day.month, day.day)] ?? 0;
-              return Tooltip(
-                message: count > 0
-                    ? '${count} entr${count == 1 ? 'y' : 'ies'} on ${DateFormat('MMM d').format(day)}'
-                    : 'No entries on ${DateFormat('MMM d').format(day)}',
-                child: Container(
-                  margin: const EdgeInsets.all(4),
-                  width: 14,
-                  height: 14,
-                  decoration: BoxDecoration(
-                    color: _heatColorForCount(count),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              );
-            }),
-          ],
-        ),
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -822,12 +1004,12 @@ Column(
         ),
         const SizedBox(height: 8),
         Text(
-          'Last 8 weeks of journaling',
+          '${DateFormat('MMMM yyyy').format(now)}',
           style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -839,7 +1021,151 @@ Column(
               ),
             ],
           ),
-          child: Column(children: rows),
+          child: Column(
+            children: [
+              // REMOVED the duplicate month title here
+              // Calendar grid
+              _buildCalendarGrid(map, now),
+              const SizedBox(height: 12),
+              // Legend
+              _buildSimpleLegend(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCalendarGrid(Map<DateTime, int> map, DateTime now) {
+    final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final gridRows = <Widget>[];
+    final today = DateTime(now.year, now.month, now.day);
+
+    // Get first day of month
+    final firstDayOfMonth = DateTime(now.year, now.month, 1);
+    // Find the Monday of the week containing the first day
+    final daysFromMonday = (firstDayOfMonth.weekday - 1) % 7;
+    final calendarStart = firstDayOfMonth.subtract(
+      Duration(days: daysFromMonday),
+    );
+
+    // Get last day of month
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0);
+    // Find the Sunday of the week containing the last day
+    final daysToSunday = (7 - lastDayOfMonth.weekday) % 7;
+    final calendarEnd = lastDayOfMonth.add(Duration(days: daysToSunday));
+
+    // Build weekday headers
+    final headerRow = <Widget>[];
+    for (final weekday in weekdays) {
+      headerRow.add(
+        Expanded(
+          child: Text(
+            weekday,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    gridRows.add(Row(children: headerRow));
+    gridRows.add(const SizedBox(height: 8));
+
+    // Build calendar rows
+    DateTime currentDate = calendarStart;
+    while (currentDate.isBefore(calendarEnd) ||
+        _isSameDay(currentDate, calendarEnd)) {
+      final weekCells = <Widget>[];
+
+      // Build one week (7 days)
+      for (int i = 0; i < 7; i++) {
+        final count =
+            map[DateTime(
+              currentDate.year,
+              currentDate.month,
+              currentDate.day,
+            )] ??
+            0;
+        final isToday = _isSameDay(currentDate, today);
+        final isCurrentMonth = currentDate.month == now.month;
+
+        weekCells.add(
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.all(1),
+              height: 20,
+              child: Tooltip(
+                message: isCurrentMonth
+                    ? '${DateFormat('EEE, MMM d').format(currentDate)}\n${count} entr${count == 1 ? 'y' : 'ies'}'
+                    : '${DateFormat('MMM d').format(currentDate)}',
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isCurrentMonth
+                        ? _heatColorForCount(count)
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(2),
+                    border: isToday
+                        ? Border.all(color: Colors.pink.shade400, width: 2)
+                        : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      currentDate.day.toString(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isCurrentMonth
+                            ? (count > 0 ? Colors.white : Colors.grey.shade700)
+                            : Colors.grey.shade400,
+                        fontWeight: isToday
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        currentDate = currentDate.add(const Duration(days: 1));
+      }
+
+      gridRows.add(Row(children: weekCells));
+      gridRows.add(const SizedBox(height: 4));
+    }
+
+    return Column(children: gridRows);
+  }
+
+  Widget _buildSimpleLegend() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          'Less',
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+        ),
+        const SizedBox(width: 8),
+        for (int i = 0; i <= 4; i++) ...[
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 1),
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: _heatColorForCount(i),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          if (i < 4) const SizedBox(width: 2),
+        ],
+        const SizedBox(width: 8),
+        Text(
+          'More',
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
         ),
       ],
     );
@@ -908,230 +1234,224 @@ Column(
   }
 
   Widget _buildEntryCard(JournalEntry e, int index) {
-  final df = DateFormat('MMM d, h:mm a');
-  final sentimentLabel = e.sentiment > 0.05
-      ? 'Positive'
-      : (e.sentiment < -0.05 ? 'Negative' : 'Neutral');
+    final df = DateFormat('MMM d, h:mm a');
+    final sentimentLabel = getSentimentLabel(e.sentiment);
 
-  return FadeTransition(
-    opacity: _fadeAnim,
-    child: SlideTransition(
-      position: Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
-          .animate(
-        CurvedAnimation(
-          parent: _fadeAnim,
-          curve: Interval(0.1 * index, 1.0, curve: Curves.easeOut),
-        ),
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          elevation: 2,
-          child: InkWell(
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+            .animate(
+              CurvedAnimation(
+                parent: _fadeAnim,
+                curve: Interval(0.1 * index, 1.0, curve: Curves.easeOut),
+              ),
+            ),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Material(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            onTap: () {
-              if (!e.isPrivate) _openEdit(e);
-            },
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: _moodColor(e.mood).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          e.mood,
-                          style: TextStyle(
-                            fontSize: 20,
-                            color: _moodColor(e.mood),
+            elevation: 2,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                if (!e.isPrivate) _openEdit(e);
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: _moodColor(e.mood).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            e.mood,
+                            style: TextStyle(
+                              fontSize: 20,
+                              color: _moodColor(e.mood),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          df.format(e.at),
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            df.format(e.at),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
                           ),
                         ),
-                      ),
-                      // 👇 Hide the 3-dot menu if private
-                      if (!e.isPrivate)
-                        PopupMenuButton<String>(
-                          icon: Icon(
-                            Icons.more_vert,
-                            color: Colors.grey.shade600,
-                          ),
-                          onSelected: (val) {
-                            if (val == 'edit') _openEdit(e);
-                            if (val == 'delete') _delete(e.id);
-                            if (val == 'share') {
-                              Clipboard.setData(
-                                ClipboardData(
-                                  text: '${df.format(e.at)}\n\n${e.text}',
+                        // 👇 Hide the 3-dot menu if private
+                        if (!e.isPrivate)
+                          PopupMenuButton<String>(
+                            icon: Icon(
+                              Icons.more_vert,
+                              color: Colors.grey.shade600,
+                            ),
+                            onSelected: (val) {
+                              if (val == 'edit') _openEdit(e);
+                              if (val == 'delete') _delete(e.id);
+                              if (val == 'share') {
+                                Clipboard.setData(
+                                  ClipboardData(
+                                    text: '${df.format(e.at)}\n\n${e.text}',
+                                  ),
+                                ).then((_) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Entry copied to clipboard',
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                });
+                              }
+                            },
+                            itemBuilder: (_) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit, size: 20),
+                                    SizedBox(width: 8),
+                                    Text('Edit'),
+                                  ],
                                 ),
-                              ).then((_) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content:
-                                        Text('Entry copied to clipboard'),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
+                              ),
+                              const PopupMenuItem(
+                                value: 'share',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.share, size: 20),
+                                    SizedBox(width: 8),
+                                    Text('Share'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Delete',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 👇 Private / Visible logic
+                    e.isPrivate
+                        ? GestureDetector(
+                            onTap: () async {
+                              // Reveal the entry
+                              await Supabase.instance.client
+                                  .from('journals')
+                                  .update({'is_private': false})
+                                  .eq('id', e.id);
+                              setState(() {
+                                e.isPrivate = false;
                               });
-                            }
-                          },
-                          itemBuilder: (_) => [
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.edit, size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Edit'),
-                                ],
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 24),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'share',
-                              child: Row(
+                              child: Column(
                                 children: [
-                                  Icon(Icons.share, size: 20),
-                                  SizedBox(width: 8),
-                                  Text('Share'),
-                                ],
-                              ),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 8),
+                                  Icon(Icons.lock, color: Colors.grey.shade400),
+                                  const SizedBox(height: 8),
                                   Text(
-                                    'Delete',
-                                    style: TextStyle(color: Colors.red),
+                                    'Private - tap to reveal',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                    ),
                                   ),
                                 ],
                               ),
+                            ),
+                          )
+                        : GestureDetector(
+                            onLongPress: () async {
+                              // Hide again
+                              await Supabase.instance.client
+                                  .from('journals')
+                                  .update({'is_private': true})
+                                  .eq('id', e.id);
+                              setState(() {
+                                e.isPrivate = true;
+                              });
+                            },
+                            child: Text(
+                              e.text,
+                              style: const TextStyle(fontSize: 16, height: 1.5),
+                            ),
+                          ),
+
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              e.sentiment > 0.05
+                                  ? Icons.sentiment_satisfied
+                                  : (e.sentiment < -0.05
+                                        ? Icons.sentiment_dissatisfied
+                                        : Icons.sentiment_neutral),
+                              size: 18,
+                              color: e.sentiment > 0.05
+                                  ? Colors.green
+                                  : (e.sentiment < -0.05
+                                        ? Colors.red
+                                        : Colors.grey),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              sentimentLabel,
+                              style: TextStyle(color: Colors.grey.shade600),
                             ),
                           ],
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 👇 Private / Visible logic
-                  e.isPrivate
-                      ? GestureDetector(
-                          onTap: () async {
-                            // Reveal the entry
-                            await Supabase.instance.client
-                                .from('journals')
-                                .update({'is_private': false})
-                                .eq('id', e.id);
-                            setState(() {
-                              e.isPrivate = false;
-                            });
-                          },
-                          child: Container(
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 24),
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              children: [
-                                Icon(Icons.lock,
-                                    color: Colors.grey.shade400),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Private - tap to reveal',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      : GestureDetector(
-                          onLongPress: () async {
-                            // Hide again
-                            await Supabase.instance.client
-                                .from('journals')
-                                .update({'is_private': true})
-                                .eq('id', e.id);
-                            setState(() {
-                              e.isPrivate = true;
-                            });
-                          },
-                          child: Text(
-                            e.text,
-                            style: const TextStyle(
-                                fontSize: 16, height: 1.5),
-                          ),
+                        Text(
+                          '${e.text.split(RegExp(r"\s+")).where((w) => w.isNotEmpty).length} words',
+                          style: TextStyle(color: Colors.grey.shade600),
                         ),
-
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            e.sentiment > 0.05
-                                ? Icons.sentiment_satisfied
-                                : (e.sentiment < -0.05
-                                    ? Icons.sentiment_dissatisfied
-                                    : Icons.sentiment_neutral),
-                            size: 18,
-                            color: e.sentiment > 0.05
-                                ? Colors.green
-                                : (e.sentiment < -0.05
-                                    ? Colors.red
-                                    : Colors.grey),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            sentimentLabel,
-                            style:
-                                TextStyle(color: Colors.grey.shade600),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        '${e.text.split(RegExp(r"\\s+")).where((w) => w.isNotEmpty).length} words',
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1149,10 +1469,10 @@ Column(
               builder: (_) => AlertDialog(
                 title: const Text('About this Journal'),
                 content: const Text(
-  'Your journal entries are securely stored in your personal space. '
-  'All data is private to you and helps track your mood, thoughts, and writing patterns over time. '
-  'Your privacy and data security are our top priorities.',
-),
+                  'Your journal entries are securely stored in your personal space. '
+                  'All data is private to you and helps track your mood, thoughts, and writing patterns over time. '
+                  'Your privacy and data security are our top priorities.',
+                ),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),

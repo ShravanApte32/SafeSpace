@@ -1,3 +1,5 @@
+// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously, avoid_print, deprecated_member_use
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -6,7 +8,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 class BreathMeditationPage extends StatefulWidget {
   final Color accent;
 
-  const BreathMeditationPage({Key? key, required this.accent}) : super(key: key);
+  const BreathMeditationPage({super.key, required this.accent});
 
   @override
   _BreathMeditationPageState createState() => _BreathMeditationPageState();
@@ -1232,12 +1234,12 @@ class BreathPulseAnimation extends StatefulWidget {
   final String currentPhase;
 
   const BreathPulseAnimation({
-    Key? key,
+    super.key,
     required this.child,
     required this.accent,
     required this.isActive,
     required this.currentPhase,
-  }) : super(key: key);
+  });
 
   @override
   _BreathPulseAnimationState createState() => _BreathPulseAnimationState();

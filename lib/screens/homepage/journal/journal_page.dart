@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, deprecated_member_use, unnecessary_brace_in_string_interps
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use, unnecessary_brace_in_string_interps, avoid_print
 
 import 'dart:async';
 
@@ -1004,7 +1004,7 @@ class _JournalPageState extends State<JournalPage>
         ),
         const SizedBox(height: 8),
         Text(
-          '${DateFormat('MMMM yyyy').format(now)}',
+          DateFormat('MMMM yyyy').format(now),
           style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
         ),
         const SizedBox(height: 16),
@@ -1101,7 +1101,7 @@ class _JournalPageState extends State<JournalPage>
               child: Tooltip(
                 message: isCurrentMonth
                     ? '${DateFormat('EEE, MMM d').format(currentDate)}\n${count} entr${count == 1 ? 'y' : 'ies'}'
-                    : '${DateFormat('MMM d').format(currentDate)}',
+                    : DateFormat('MMM d').format(currentDate),
                 child: Container(
                   decoration: BoxDecoration(
                     color: isCurrentMonth

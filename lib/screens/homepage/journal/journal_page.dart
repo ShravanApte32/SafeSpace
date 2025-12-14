@@ -1244,7 +1244,11 @@ class _JournalPageState extends State<JournalPage>
             .animate(
               CurvedAnimation(
                 parent: _fadeAnim,
-                curve: Interval(0.1 * index, 1.0, curve: Curves.easeOut),
+                curve: Interval(
+                  (0.1 * index).clamp(0.0, 1.0),
+                  1.0,
+                  curve: Curves.easeOut,
+                ),
               ),
             ),
         child: Container(

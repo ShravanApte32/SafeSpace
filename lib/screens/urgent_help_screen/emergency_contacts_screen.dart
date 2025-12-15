@@ -321,6 +321,7 @@ class _EmergencyContactsPageState extends State<EmergencyContactsPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const SizedBox(height: 24),
                 Container(
                   width: 100,
                   height: 100,
@@ -1019,6 +1020,7 @@ class __AddContactBottomSheetState extends State<_AddContactBottomSheet>
                 ),
 
                 SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
+                const SizedBox(height: 30),
               ],
             ),
           ),

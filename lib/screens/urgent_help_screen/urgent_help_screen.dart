@@ -22,7 +22,7 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
   late Animation<double> _slideAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<Color?> _gradientAnimation;
-  
+
   final List<Map<String, dynamic>> _helpOptions = [
     {
       'icon': Icons.phone_in_talk_rounded,
@@ -31,7 +31,7 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
       'color': const Color(0xFFFF5252),
       'gradient': [const Color(0xFFFF5252), const Color(0xFFFF8A80)],
       'action': 'call',
-      'number': '917020666430'
+      'number': '917020666430',
     },
     {
       'icon': Icons.chat_rounded,
@@ -40,7 +40,7 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
       'color': const Color(0xFF4CAF50),
       'gradient': [const Color(0xFF4CAF50), const Color(0xFF81C784)],
       'action': 'whatsapp',
-      'number': '917020666430'
+      'number': '917020666430',
     },
     {
       'icon': Icons.contact_emergency_rounded,
@@ -49,13 +49,13 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
       'color': const Color(0xFF7986CB),
       'gradient': [const Color(0xFF7986CB), const Color(0xFF9FA8DA)],
       'action': 'contacts',
-    }
+    },
   ];
 
   @override
   void initState() {
     super.initState();
-    
+
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1800),
       vsync: this,
@@ -85,15 +85,10 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
     _gradientAnimation = ColorTween(
       begin: const Color(0xFFFFE0E0),
       end: const Color(0xFFFCE4EC),
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _controller.forward();
-    
+
     // Start floating animation loop
     Timer.periodic(const Duration(seconds: 4), (timer) {
       if (_controller.status == AnimationStatus.completed) {
@@ -151,15 +146,16 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
             pageBuilder: (_, __, ___) => const EmergencyContactsPage(),
             transitionsBuilder: (_, animation, __, child) {
               return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(1.0, 0.0),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(
-                    parent: animation,
-                    curve: Curves.easeInOutCubic,
-                  ),
-                ),
+                position:
+                    Tween<Offset>(
+                      begin: const Offset(1.0, 0.0),
+                      end: Offset.zero,
+                    ).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInOutCubic,
+                      ),
+                    ),
                 child: child,
               );
             },
@@ -176,6 +172,8 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
       builder: (context, child) {
         return Scaffold(
           body: Container(
+            width: MediaQuery.of(context).size.width,
+            height: MediaQuery.of(context).size.height,
             decoration: BoxDecoration(
               gradient: RadialGradient(
                 colors: [
@@ -183,7 +181,8 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
                   _gradientAnimation.value!.withOpacity(0.8),
                 ],
                 center: Alignment.topRight,
-                radius: 1.5,
+                radius: 1.8,
+                stops: [0.1, 1.0],
               ),
             ),
             child: Stack(
@@ -222,15 +221,16 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
                         children: [
                           // Animated header
                           SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(-1.0, 0.0),
-                              end: Offset.zero,
-                            ).animate(
-                              CurvedAnimation(
-                                parent: _controller,
-                                curve: Curves.easeOutCubic,
-                              ),
-                            ),
+                            position:
+                                Tween<Offset>(
+                                  begin: const Offset(-1.0, 0.0),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: _controller,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                                ),
                             child: Row(
                               children: [
                                 GestureDetector(
@@ -256,7 +256,8 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
                                 const SizedBox(width: 20),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         "Urgent Support",
@@ -336,7 +337,8 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
                                   child: _HelpOptionCard(
                                     option: _helpOptions[index],
                                     delay: index * 200,
-                                    onTap: () => _handleAction(_helpOptions[index]),
+                                    onTap: () =>
+                                        _handleAction(_helpOptions[index]),
                                   ),
                                 ),
                               ),
@@ -349,15 +351,16 @@ class _UrgentHelpPageState extends State<UrgentHelpPage>
                           FadeTransition(
                             opacity: _fadeAnimation,
                             child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0.0, 0.5),
-                                end: Offset.zero,
-                              ).animate(
-                                CurvedAnimation(
-                                  parent: _controller,
-                                  curve: const Interval(0.6, 1.0),
-                                ),
-                              ),
+                              position:
+                                  Tween<Offset>(
+                                    begin: const Offset(0.0, 0.5),
+                                    end: Offset.zero,
+                                  ).animate(
+                                    CurvedAnimation(
+                                      parent: _controller,
+                                      curve: const Interval(0.3, 0.5),
+                                    ),
+                                  ),
                               child: Container(
                                 padding: const EdgeInsets.all(24),
                                 decoration: BoxDecoration(
@@ -462,32 +465,17 @@ class _HelpOptionCardState extends State<_HelpOptionCard>
     _scaleAnimation = Tween<double>(
       begin: 0.95,
       end: 1.0,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutBack,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _opacityAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0.5, 0.0),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     Future.delayed(Duration(milliseconds: widget.delay + 300), () {
       if (mounted) _controller.forward();
@@ -561,7 +549,7 @@ class _HelpOptionCardState extends State<_HelpOptionCard>
                         ),
                       ),
                     ),
-                    
+
                     Padding(
                       padding: const EdgeInsets.all(24),
                       child: Row(

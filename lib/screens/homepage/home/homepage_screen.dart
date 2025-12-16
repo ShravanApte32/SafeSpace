@@ -19,6 +19,7 @@ import 'package:hereforyou/utils/colormath.dart';
 import 'package:hereforyou/widgets/background_gradient.dart';
 import 'package:hereforyou/widgets/glass_effect.dart';
 import 'package:hereforyou/widgets/heart_painter.dart';
+import 'package:hereforyou/widgets/interactive_mood_section.dart';
 import 'package:hereforyou/widgets/particle_widget.dart';
 import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
@@ -64,7 +65,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _currentIndex = 0;
 
   // Define all your main pages here
-  late final List<Widget> _pages;
 
   final supabase = Supabase.instance.client;
 
@@ -96,13 +96,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-
-    _pages = [
-      _HomeTabContent(),
-      ChatTabPage(),
-      ExploreTabPage(),
-      ProfileTabPage(userName: widget.userName),
-    ];
 
     // Initialize mood controller after moods list is defined
     _moodController = PageController(
@@ -195,7 +188,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('user_id');
 
-      if (userId == null) return;
+      if (userId == null) {
+        print('No user ID found');
+        return;
+      }
+
+      print('Loading last mood for user ID: $userId');
 
       final response = await supabase
           .from('mood_logs')
@@ -204,24 +202,60 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           .order('created_at', ascending: false)
           .limit(1);
 
+      print('Supabase response: ${response.length} records found');
+
       if (response.isNotEmpty) {
         final latestMood = response.first;
         final label = latestMood['label'];
+        final emoji = latestMood['emoji'];
+
+        print('Latest mood from DB: label="$label", emoji="$emoji"');
+        print(
+          'Available mood labels: ${moods.map((m) => m['label']).toList()}',
+        );
 
         // Find index of this mood
         final index = moods.indexWhere((m) => m['label'] == label);
+        print('Found index: $index');
+
         if (index != -1 && mounted) {
+          print(
+            'Setting current mood to index: $index (${moods[index]['label']})',
+          );
           setState(() {
             _currentMood = index;
           });
 
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _moodController.jumpToPage(index);
+          // Small delay to ensure controller is ready
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted && _moodController.hasClients) {
+              print('Jumping to page: $index');
+              _moodController.jumpToPage(index);
+            }
           });
+        } else {
+          print('Mood label "$label" not found in moods list');
+          // Try case-insensitive search
+          final caseInsensitiveIndex = moods.indexWhere(
+            (m) =>
+                (m['label'] as String).toLowerCase() ==
+                (label as String).toLowerCase(),
+          );
+          if (caseInsensitiveIndex != -1) {
+            print(
+              'Found case-insensitive match at index: $caseInsensitiveIndex',
+            );
+            setState(() {
+              _currentMood = caseInsensitiveIndex;
+            });
+          }
         }
+      } else {
+        print('No mood logs found for user');
       }
     } catch (e) {
       print('Error loading last mood: $e');
+      print('Stack trace: ${e.toString()}');
     }
   }
 
@@ -332,6 +366,36 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final safePadding = MediaQuery.of(context).padding.bottom;
     final isTablet = MediaQuery.of(context).size.width > 600;
+    final _pages = [
+      HomeTabContent(
+        bgController: _bgController,
+        hearts: _hearts,
+        header: _buildHeaderSection(),
+        moodSection: InteractiveMoodSection(
+          controller: _moodController,
+          currentMood: _currentMood,
+          moods: moods,
+          onMoodChanged: (i) => setState(() => _currentMood = i),
+          onMoodTap: (i) async {
+            await _logMoodToSupabase(moods[i]);
+            if (!mounted) return;
+            setState(() => _currentMood = i);
+            _moodController.animateToPage(
+              i,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+          },
+        ),
+        affirmationCard: _buildAffirmationCard(),
+        quickActionsBuilder: (maxWidth, isTablet) =>
+            _buildQuickActions(maxWidth: maxWidth, isTablet: isTablet),
+        moodHistoryButton: _buildMoodHistoryButton(),
+      ),
+      ChatTabPage(),
+      ExploreTabPage(),
+      ProfileTabPage(userName: widget.userName),
+    ];
 
     return Stack(
       children: [
@@ -1453,10 +1517,29 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 }
 
-class _HomeTabContent extends StatelessWidget {
+class HomeTabContent extends StatelessWidget {
+  final AnimationController bgController;
+  final List<FloatHeart> hearts;
+
+  final Widget header;
+  final Widget moodSection;
+  final Widget affirmationCard;
+  final Widget Function(double maxWidth, bool isTablet) quickActionsBuilder;
+  final Widget moodHistoryButton;
+
+  const HomeTabContent({
+    super.key,
+    required this.bgController,
+    required this.hearts,
+    required this.header,
+    required this.moodSection,
+    required this.affirmationCard,
+    required this.quickActionsBuilder,
+    required this.moodHistoryButton,
+  });
+
   @override
   Widget build(BuildContext context) {
-    final state = context.findAncestorStateOfType<_HomePageState>()!;
     final safePadding = MediaQuery.of(context).padding.bottom;
     final isTablet = MediaQuery.of(context).size.width > 600;
 
@@ -1476,15 +1559,12 @@ class _HomeTabContent extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 AnimatedBuilder(
-                  animation: state._bgController,
+                  animation: bgController,
                   builder: (_, __) => CustomPaint(
-                    painter: HeartsPainter(
-                      state._hearts,
-                      state._bgController.value,
-                    ),
+                    painter: HeartsPainter(hearts, bgController.value),
                   ),
                 ),
-                state._buildHeaderSection(),
+                header,
               ],
             ),
           ),
@@ -1494,20 +1574,16 @@ class _HomeTabContent extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: Column(
               children: [
-                state._buildInteractiveMoodSection(),
+                moodSection,
                 const SizedBox(height: 20),
-                state._buildAffirmationCard(),
+                affirmationCard,
                 const SizedBox(height: 10),
                 LayoutBuilder(
-                  builder: (_, constraints) {
-                    return state._buildQuickActions(
-                      maxWidth: constraints.maxWidth,
-                      isTablet: isTablet,
-                    );
-                  },
+                  builder: (_, constraints) =>
+                      quickActionsBuilder(constraints.maxWidth, isTablet),
                 ),
                 const SizedBox(height: 20),
-                state._buildMoodHistoryButton(),
+                moodHistoryButton,
                 SizedBox(height: safePadding + 100),
               ],
             ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hereforyou/screens/homepage/home/homepage_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:hereforyou/screens/splash_screen/splash_screen.dart';
 
@@ -26,7 +27,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       debugShowCheckedModeBanner: false,
-      home: SplashScreen(),
+      home: HomePage(userName: ''),
     );
   }
 }

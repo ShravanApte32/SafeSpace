@@ -393,7 +393,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         moodHistoryButton: _buildMoodHistoryButton(),
       ),
       ChatTabPage(),
-      ExploreTabPage(),
+      const ExploreTabPage(),
       ProfileTabPage(userName: widget.userName),
     ];
 

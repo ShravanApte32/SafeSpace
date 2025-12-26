@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously, avoid_print
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hereforyou/models/hearts.dart';
@@ -15,6 +16,7 @@ import 'package:hereforyou/screens/profile_page/profile_tab.dart';
 import 'package:hereforyou/widgets/background_gradient.dart';
 import 'package:hereforyou/widgets/glass_effect.dart';
 import 'package:hereforyou/widgets/heart_painter.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -67,8 +69,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final List<String> prompts = const [
     "How's your heart today? 💖",
     "You don't have to hold it alone",
-    "Small steps still count ✨",
-    "You deserve kindness, especially from yourself",
+    'Small steps still count ✨',
+    'You deserve kindness, especially from yourself',
   ];
 
   @override
@@ -149,19 +151,51 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   /// Fetch a random affirmation
   Future<void> _fetchAffirmation() async {
-    try {
-      // TODO: Replace with actual API call or local database
-      setState(() {
-        affirmation = "Stay positive and keep moving forward!";
-      });
-    } catch (e) {
+  try {
+    // Using Affirmations.dev API
+    final response = await http.get(
+      Uri.parse('https://www.affirmations.dev/'),
+      headers: {
+        'Accept': 'application/json',
+      },
+    );
+    
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
       if (mounted) {
         setState(() {
-          affirmation = "Stay positive and keep moving forward!";
+          affirmation = data['affirmation'];
         });
       }
+    } else {
+      _useLocalAffirmation();
     }
+  } catch (e) {
+    print('Error fetching affirmation: $e');
+    _useLocalAffirmation();
   }
+}
+
+void _useLocalAffirmation() {
+  final localAffirmations = [
+    'You are capable of amazing things.',
+    'Your potential is limitless.',
+    'Today is full of possibilities.',
+    'You are stronger than you think.',
+    'Every day is a fresh start.',
+    'You radiate positive energy.',
+    'Good things are coming your way.',
+    'You deserve happiness and success.',
+    'You are making a difference.',
+    'Believe in yourself and all that you are.'
+  ];
+  
+  if (mounted) {
+    setState(() {
+      affirmation = localAffirmations[Random().nextInt(localAffirmations.length)];
+    });
+  }
+}
 
   /// Load the last logged mood from Supabase
   Future<void> _loadLastMood() async {
@@ -283,9 +317,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   /// Get appropriate greeting based on time of day
   String _greeting() {
     final int hour = DateTime.now().hour;
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 
   @override
@@ -370,7 +404,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 size: 28,
               ),
               label: const Text(
-                "I need to talk",
+                'I need to talk',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -398,11 +432,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: <Widget>[
-          _buildNavigationButton(Icons.home_rounded, "Home", 0, isTablet),
-          _buildNavigationButton(Icons.chat_rounded, "Chat", 1, isTablet),
+          _buildNavigationButton(Icons.home_rounded, 'Home', 0, isTablet),
+          _buildNavigationButton(Icons.chat_rounded, 'Chat', 1, isTablet),
           SizedBox(width: isTablet ? 80 : 40),
-          _buildNavigationButton(Icons.explore_rounded, "Explore", 2, isTablet),
-          _buildNavigationButton(Icons.person_rounded, "Profile", 3, isTablet),
+          _buildNavigationButton(Icons.explore_rounded, 'Explore', 2, isTablet),
+          _buildNavigationButton(Icons.person_rounded, 'Profile', 3, isTablet),
         ],
       ),
     );
@@ -487,26 +521,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      _buildTalkOption(
-                        icon: Icons.smart_toy_rounded,
-                        title: "AI Listener",
-                        subtitle: "Always available, judgment-free",
-                        color: Colors.purple,
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => const AIChatPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
+                      // _buildTalkOption(
+                      //   icon: Icons.smart_toy_rounded,
+                      //   title: 'AI Listener',
+                      //   subtitle: 'Always available, judgment-free',
+                      //   color: Colors.purple,
+                      //   onTap: () {
+                      //     Navigator.pop(context);
+                      //     Navigator.push(
+                      //       context,
+                      //       MaterialPageRoute<void>(
+                      //         builder: (_) => const AIChatPage(),
+                      //       ),
+                      //     );
+                      //   },
+                      // ),
+                      // const SizedBox(height: 16),
                       _buildTalkOption(
                         icon: Icons.people_rounded,
-                        title: "Community Chat",
-                        subtitle: "Connect with understanding peers",
+                        title: 'Community Chat',
+                        subtitle: 'Connect with understanding peers',
                         color: Colors.teal,
                         onTap: () {
                           Navigator.pop(context);
@@ -518,22 +552,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           );
                         },
                       ),
-                      const SizedBox(height: 16),
-                      _buildTalkOption(
-                        icon: Icons.phone_rounded,
-                        title: "Human Helpline",
-                        subtitle: "Connect with professional help support",
-                        color: const Color.fromARGB(255, 221, 137, 89),
-                        onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => const HelplinePage(),
-                            ),
-                          );
-                        },
-                      ),
+                      // const SizedBox(height: 16),
+                      // _buildTalkOption(
+                      //   icon: Icons.phone_rounded,
+                      //   title: 'Human Helpline',
+                      //   subtitle: 'Connect with professional help support',
+                      //   color: const Color.fromARGB(255, 221, 137, 89),
+                      //   onTap: () {
+                      //     Navigator.pop(context);
+                      //     Navigator.push(
+                      //       context,
+                      //       MaterialPageRoute<void>(
+                      //         builder: (_) => const HelplinePage(),
+                      //       ),
+                      //     );
+                      //   },
+                      // ),
                       const SizedBox(height: 60),
                     ],
                   ),
@@ -702,7 +736,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                "${_greeting()}, ${widget.userName}",
+                '${_greeting()}, ${widget.userName}',
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -753,7 +787,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: <Widget>[
-          _buildDateSection("Today", _formatDate(DateTime.now())),
+          _buildDateSection('Today', _formatDate(DateTime.now())),
           _buildDivider(),
           _buildDateSection("It's", _getWeekday(DateTime.now())),
         ],
@@ -875,7 +909,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         const SizedBox(width: 12),
         Expanded(
           child: Text(
-            "How are you feeling today?",
+            'How are you feeling today?',
             style: TextStyle(
               fontSize: isTablet ? 20 : 18,
               fontWeight: FontWeight.bold,
@@ -1049,7 +1083,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    "Daily Affirmation",
+                    'Daily Affirmation',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -1061,7 +1095,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               const SizedBox(height: 16),
               Text(
                 affirmation ??
-                    "Stay positive and keep moving forward! Every day is a fresh start.",
+                    'Stay positive and keep moving forward! Every day is a fresh start.',
                 style: const TextStyle(
                   fontSize: 18,
                   height: 1.6,
@@ -1128,7 +1162,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Text(
-                      "Mood History",
+                      'Mood History',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -1137,7 +1171,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      "Track your emotional journey over time",
+                      'Track your emotional journey over time',
                       style: TextStyle(fontSize: 14, color: Colors.pink[600]),
                     ),
                   ],
